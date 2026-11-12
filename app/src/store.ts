@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'preact/hooks';
-import type { Step, StarterType } from '../../core/src/index';
+import { alarmOps, type AlarmOp, type Step, type StarterType } from '../../core/src/index';
+
+/** Provided by the Android wrapper (real alarm clock). Absent in the browser. */
+declare global {
+  interface Window {
+    SourdoughAlarms?: { apply(ops: AlarmOp[]): void };
+  }
+}
 
 export interface Starter {
   name: string;
@@ -51,7 +58,19 @@ let state = load();
 const listeners = new Set<() => void>();
 
 export function setState(patch: Partial<State>): void {
+  const before = state.plan?.steps ?? [];
   state = { ...state, ...patch };
+  const after = state.plan?.steps ?? [];
+  if (before !== after) {
+    const ops = alarmOps(before, after);
+    if (ops.length > 0) {
+      try {
+        window.SourdoughAlarms?.apply(ops);
+      } catch {
+        /* the plan still works without the native alarm */
+      }
+    }
+  }
   try {
     localStorage.setItem(KEY, JSON.stringify(state));
   } catch {

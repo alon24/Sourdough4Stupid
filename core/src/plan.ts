@@ -1,5 +1,6 @@
 /** Backward planner: from "bread out of the oven at T" to a list of timed steps. */
 import { bakeProfile, type LoafShape } from './bake.js';
+import { flourName, type BlendShare } from './flours.js';
 import { dough, type DoughResult, type Inclusion, type Piece } from './dough.js';
 import {
   feed,
@@ -46,6 +47,7 @@ export interface PlanInput {
   /** preferred hours between the build feeding and mixing */
   feedWindowH?: number;
   hydration?: number;
+  blend?: BlendShare[];
   salt?: number;
   levainPct?: number;
 }
@@ -70,7 +72,8 @@ export function plan(input: PlanInput, now: number = Date.now()): Plan {
   const pieces: Piece[] = [];
   if (loaves > 0) pieces.push({ name: 'loaf', count: loaves, weight: loafWeight });
   if (rolls > 0) pieces.push({ name: 'roll', count: rolls, weight: rollWeight });
-  const d = dough({ pieces, hydration, salt, levainPct, levainHydration: starter.hydration, inclusions });
+  const flours = (input.blend ?? [{ id: 'white', pct: 1 }]).map((b) => ({ name: flourName(b.id), pct: b.pct }));
+  const d = dough({ pieces, hydration, salt, levainPct, levainHydration: starter.hydration, inclusions, flours });
 
   const steps: Step[] = [];
   let n = 0;
@@ -167,12 +170,27 @@ export function shift(steps: Step[], id: string, deltaMin: number, cascade = tru
     .sort((x, y) => x.at - y.at);
 }
 
-/** Mark a step done at `when`; if it was late or early, the rest follows. */
+/**
+ * Mark a step done at `when`.
+ * - Late: the waits that follow keep their planned length, counted from `when`,
+ *   so everything after moves by the delay (a 45 min autolyse that took 75 min
+ *   still leaves the planned 30 min before the next step).
+ * - Early: later steps stay where they are, so the oven time holds. Use
+ *   `resumeAt` ("I am here now") to pull the rest forward on purpose.
+ */
 export function complete(steps: Step[], id: string, when: number): Step[] {
   const target = steps.find((s) => s.id === id);
   if (!target) throw new RangeError(`unknown step ${id}`);
-  const moved = shift(steps, id, (when - target.at) / MIN, true);
+  const lateMin = (when - target.at) / MIN;
+  const moved = lateMin > 0 ? shift(steps, id, lateMin, true) : steps;
   return moved.map((s) => (s.id === id ? { ...s, doneAt: when } : s));
+}
+
+/** Minutes from `when` to the step that follows `id`, for showing "next step in ...". */
+export function gapAfter(steps: Step[], id: string): number {
+  const i = steps.findIndex((s) => s.id === id);
+  const next = steps[i + 1];
+  return i < 0 || !next ? 0 : (next.at - steps[i]!.at) / MIN;
 }
 
 /** "I already started, I am here": everything before `id` is done, the rest replans from `now`. */
@@ -183,4 +201,36 @@ export function resumeAt(steps: Step[], id: string, now: number): Step[] {
   return steps.map((s, i) =>
     i < idx ? { ...s, doneAt: s.doneAt ?? Math.min(s.at + delta * MIN, now) } : { ...s, at: s.at + delta * MIN },
   );
+}
+
+export type AlarmOp =
+  | { op: 'set'; id: string; at: number; title: string; note?: string }
+  | { op: 'cancel'; id: string };
+
+const wantsAlarm = (s: Step): boolean => s.alarm && s.doneAt === undefined;
+
+/**
+ * What the phone's alarm clock must do to match `after`, given what it holds for `before`:
+ * set new or moved alarms, cancel ones that were switched off, finished or removed.
+ * Same input to the native layer on every change, so alarms never drift from the plan.
+ */
+export function alarmOps(before: Step[], after: Step[]): AlarmOp[] {
+  const ops: AlarmOp[] = [];
+  const prev = new Map(before.filter(wantsAlarm).map((s) => [s.id, s]));
+  for (const s of after) {
+    if (!wantsAlarm(s)) continue;
+    const old = prev.get(s.id);
+    if (!old || old.at !== s.at || old.title !== s.title || old.note !== s.note) {
+      ops.push({ op: 'set', id: s.id, at: s.at, title: s.title, ...(s.note ? { note: s.note } : {}) });
+    }
+    prev.delete(s.id);
+  }
+  for (const id of prev.keys()) ops.push({ op: 'cancel', id });
+  return ops;
+}
+
+/** Switch a step's alarm on or off. */
+export function setAlarm(steps: Step[], id: string, on: boolean): Step[] {
+  if (!steps.some((s) => s.id === id)) throw new RangeError(`unknown step ${id}`);
+  return steps.map((s) => (s.id === id ? { ...s, alarm: on } : s));
 }

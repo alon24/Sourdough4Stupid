@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { complete, resumeAt, shift, type Step } from '../../../core/src/index';
+import { complete, resumeAt, setAlarm, shift, type Step } from '../../../core/src/index';
 import { dayName, grams, hhmm, until } from '../format';
 import { getState, setState, useStore } from '../store';
 
@@ -73,7 +73,7 @@ export function PlanScreen() {
                 <span class="t num">{hhmm(s.at)}</span>
                 <span class="dot" aria-hidden="true"></span>
                 <span>
-                  <span class="title">{s.title}</span>
+                  <span class="title">{s.title}{s.alarm && s.doneAt === undefined ? ' ⏰' : ''}</span>
                   {s.id === next?.id && <span class="note">{until(s.at)}</span>}
                   {s.note && s.doneAt === undefined && <span class="note">{s.note}</span>}
                 </span>
@@ -109,6 +109,10 @@ export function PlanScreen() {
                 <label class="row" style="justify-content:flex-start;min-height:48px">
                   <input type="checkbox" checked={cascade} onChange={(e) => setCascade(e.currentTarget.checked)} style="width:24px;height:24px" />
                   להזיז גם את כל השלבים שאחריו
+                </label>
+                <label class="row" style="justify-content:flex-start;min-height:48px">
+                  <input type="checkbox" checked={sel.alarm} onChange={(e) => update(setAlarm(steps, sel.id, e.currentTarget.checked))} style="width:24px;height:24px" />
+                  שעון מעורר לשלב הזה
                 </label>
                 <div class="grid2">
                   <button class="btn" onClick={() => update(resumeAt(steps, sel.id, Date.now()))}>אני כאן עכשיו</button>

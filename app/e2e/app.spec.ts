@@ -96,3 +96,58 @@ test('manifest is installable', async ({ page, request }) => {
   expect(m).toMatchObject({ lang: 'he', dir: 'rtl', display: 'standalone' });
   expect(m.icons.length).toBeGreaterThan(1);
 });
+
+test('marking a step done late moves the finish by the delay only', async ({ page }) => {
+  await page.goto('/#/new');
+  await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
+  const finish = page.getByTestId('finish');
+  const before = await finish.innerText();
+  // the first step is hours in the future, so completing it "now" is early: oven time must hold
+  await page.getByRole('button', { name: /להאכיל סטארטר/ }).click();
+  await page.getByRole('button', { name: 'בוצע', exact: true }).click();
+  await expect(finish).toHaveText(before);
+});
+
+test('whole wheat blend suggests more water and offers to take it', async ({ page }) => {
+  await page.goto('/#/new');
+  await expect(page.getByTestId('hydration')).toHaveText('72%');
+  for (let i = 0; i < 6; i++) await page.getByRole('button', { name: 'פחות הידרציה' }).click();
+  await page.getByRole('combobox', { name: 'קמח' }).selectOption({ label: '80% לבן, 20% מלא' });
+  await expect(page.getByTestId('hydration-tip')).toContainText('מומלץ בערך 75%');
+  await page.getByRole('button', { name: /קח את ההצעה/ }).click();
+  await expect(page.getByTestId('hydration')).toHaveText('75%');
+  await expect(page.getByText('מתאים לתערובת הזו')).toBeVisible();
+});
+
+test('picking a blend follows the suggestion only if hydration was comfortable', async ({ page }) => {
+  await page.goto('/#/new');
+  await page.getByRole('combobox', { name: 'קמח' }).selectOption({ label: '80% לבן, 20% מלא' });
+  await expect(page.getByTestId('hydration')).toHaveText('75%');
+  for (let i = 0; i < 4; i++) await page.getByRole('button', { name: 'עוד הידרציה' }).click();
+  await page.getByRole('combobox', { name: 'קמח' }).selectOption({ label: 'לבן' });
+  await expect(page.getByTestId('hydration')).toHaveText('79%');
+});
+
+test('alarm changes reach the native alarm clock', async ({ page }) => {
+  await page.addInitScript(() => {
+    (window as any).__ops = [];
+    (window as any).SourdoughAlarms = { apply: (ops: unknown[]) => (window as any).__ops.push(...ops) };
+  });
+  await page.reload();
+  await page.goto('/#/new');
+  await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
+  const count = () => page.evaluate(() => (window as any).__ops.length);
+  expect(await count()).toBeGreaterThan(5);
+  await page.evaluate(() => ((window as any).__ops.length = 0));
+  await page.getByRole('button', { name: /לאפות: 240°/ }).click();
+  await page.getByLabel('שעון מעורר לשלב הזה').click();
+  const ops = await page.evaluate(() => (window as any).__ops);
+  expect(ops).toHaveLength(1);
+  expect(ops[0].op).toBe('cancel');
+  await page.evaluate(() => ((window as any).__ops.length = 0));
+  await page.getByRole('button', { name: /להאכיל סטארטר/ }).click();
+  await page.getByRole('button', { name: '+30 דק\'' }).click();
+  const moved = await page.evaluate(() => (window as any).__ops);
+  expect(moved.length).toBeGreaterThan(3);
+  expect(moved.every((o: any) => o.op === 'set')).toBe(true);
+});
