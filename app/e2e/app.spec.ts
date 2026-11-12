@@ -183,7 +183,7 @@ test('a ready starter skips the feeding steps', async ({ page }) => {
   await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
   await expect(page.getByRole('heading', { name: 'התוכנית שלך' })).toBeVisible();
   await expect(page.getByRole('button', { name: /האכלה|להאכיל סטארטר/ })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /אוטוליזה/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /אוטוליזה: קמח ומים/ })).toBeVisible();
 });
 
 test('a step can be marked done at a time that already passed', async ({ page }) => {
@@ -458,9 +458,29 @@ test('reference bake: 32 g stiff, 300 g tomorrow, 2 loaves of 1 kg + rolls, spli
   await expect(page.getByRole('dialog')).toContainText('X עמוק');
   await page.getByRole('button', { name: 'סגור' }).click({ position: { x: 5, y: 5 } });
   await page.getByRole('button', { name: /לחלק: כיכרות ולחמניות/ }).click();
-  await expect(page.getByRole('dialog')).toContainText('בלי קמח');
+  await expect(page.getByRole('dialog')).toContainText('עיצוב סופי');
   await expect(page.getByRole('dialog')).toContainText('50%–60%');
   await page.getByRole('button', { name: 'סגור' }).click({ position: { x: 5, y: 5 } });
   await expect(page.getByRole('button', { name: /להעשיר את הלחמניות/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /אוטוליזה: קמח ומים/ })).toHaveCount(0);
+});
+
+test('autolyse can be switched off and on in a running bake, alarms follow, and a new recipe can be derived', async ({ page }) => {
+  await page.goto('/#/recipe');
+  await page.getByLabel('שם המתכון').fill('לחם לבדיקה');
+  await page.getByRole('button', { name: 'שמור מתכון' }).click();
+  await page.getByRole('link', { name: 'אפייה חדשה' }).first().click();
+  await page.evaluate(() => { (window as any).__ops = []; window.SourdoughAlarms = { apply: (o: unknown[]) => (window as any).__ops.push(...o) } as any; });
+  await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
+  await expect(page.getByRole('button', { name: /אוטוליזה: קמח ומים/ })).toHaveCount(1);
+  await page.getByRole('button', { name: 'בלי אוטוליזה, הכול יחד' }).click();
+  await expect(page.getByRole('button', { name: /אוטוליזה: קמח ומים/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /לערבב הכול יחד/ })).toHaveCount(1);
+  expect((await page.evaluate(() => (window as any).__ops)).some((o: any) => o.op === 'cancel')).toBe(true);
+  await page.getByRole('button', { name: 'כן, מתכון חדש' }).click();
+  await page.getByRole('button', { name: 'להוסיף אוטוליזה' }).click();
+  await expect(page.getByRole('button', { name: /אוטוליזה: קמח ומים/ })).toHaveCount(1);
+  await page.getByRole('button', { name: 'לא, רק הפעם' }).click();
+  await page.getByRole('link', { name: 'מתכונים' }).click();
+  await expect(page.getByTestId('recipe')).toHaveCount(2);
 });

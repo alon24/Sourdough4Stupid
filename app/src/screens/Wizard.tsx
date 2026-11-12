@@ -140,7 +140,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
       ...(starterMode && !ready ? { overnightFeed: overnight } : {}), ...(starterMode ? { useAllStarter: true } : {}),
     };
     const parts = [loaves && `${loaves} לחמים`, rolls && `${rolls} לחמניות`, ...picked].filter(Boolean);
-    setState({ plan: toActive(plan(input), input, parts.join(' · ')) });
+    setState({ plan: { ...toActive(plan(input), input, parts.join(' · ')), ...(initial ? { recipeId: initial.id } : {}) } });
     location.hash = '#/plan';
   };
 
