@@ -125,3 +125,10 @@ nav.tabs { z-index: 20; }
 .note-user { padding: 0 8px; font-size: 14px; color: var(--coral); }
 .jump { position: sticky; bottom: 96px; align-self: center; z-index: 15; background: var(--sun); color: #2B1D3A; border-color: var(--sun); box-shadow: 0 4px 14px rgba(0,0,0,.35); width: auto !important; }
 textarea { font: inherit; color: inherit; background: transparent; border: 2px solid var(--ink); border-radius: 16px; padding: 8px 12px; width: 100%; }
+
+.actions .btn { min-height: 56px; }
+.card.hl { outline: 3px solid var(--sun); }
+.thumbs { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; }
+.thumb { margin: 0; flex: 0 0 120px; font-size: 12px; }
+.thumb img, .thumb .ph { width: 120px; height: 120px; object-fit: cover; border-radius: 16px; background: var(--ground); display: block; }
+.thumb figcaption { margin-top: 4px; color: var(--muted); }

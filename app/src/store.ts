@@ -43,6 +43,16 @@ export interface ActivePlan {
   branches?: Branch[];
   /** total dough, for recomputing the split */
   total?: number;
+  /** photos taken during the bake (the pictures themselves are in IndexedDB) */
+  photos?: PlanPhoto[];
+}
+
+export interface PlanPhoto {
+  id: string;
+  at: number;
+  label: string;
+  stepId?: string;
+  risePct?: number;
 }
 
 export interface FlourPreset {
@@ -97,7 +107,7 @@ export interface State {
   starter: Starter;
   plan: ActivePlan | null;
   roomTempC: number;
-  history: { title: string; finishedAt: number; notes?: string[] }[];
+  history: { title: string; finishedAt: number; notes?: string[]; photos?: PlanPhoto[]; readings?: Reading[] }[];
 }
 
 const KEY = 'machmetzet.v1';

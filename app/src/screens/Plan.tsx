@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import {
   addCustom, addLoaf, branchSummary, removeBranch, removeStep, setRollCount, setTrackAlarms, setUserNote, setWeight, setWhere, type Branch, type Where,
   addFold, removeFold, setAutolyse, bulkState, complete, doughTempAdvice, FRICTION, resumeAt, retimeBulk, roomTempTip, setAlarm, shift, TARGET_DOUGH_C,
-  waterTemp, type Reading, type Step,
+  waterTemp, fridgeTip, targetFor, type Reading, type Step,
 } from '../../../core/src/index';
 import { dayName, grams, hhmm, toLocalInput, until } from '../format';
-import { getState, setState, useStore } from '../store';
+import { getState, setState, useStore, type PlanPhoto } from '../store';
+import { savePhoto, shrink, usePhotoUrl } from '../photos';
 
 export function PlanScreen() {
   const { plan, history } = useStore();
@@ -16,6 +17,8 @@ export function PlanScreen() {
   const [deriveP, setDeriveP] = useState(false);
   const [branchOpen, setBranchOpen] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [tempOpen, setTempOpen] = useState(false);
+  const [photoOpen, setPhotoOpen] = useState(false);
   const nextRef = useRef<HTMLElement | null>(null);
   const [far, setFar] = useState(false);
   useEffect(() => {
@@ -70,7 +73,7 @@ export function PlanScreen() {
       ...steps.filter((s) => s.userNote).map((s) => `${s.title}: ${s.userNote}`),
       ...steps.filter((s) => s.kind === 'custom').map((s) => `${s.title}${s.note ? `: ${s.note}` : ''}`),
     ];
-    setState({ plan: null, history: [{ title: plan.title, finishedAt: Date.now(), ...(notes.length ? { notes } : {}) }, ...history] });
+    setState({ plan: null, history: [{ title: plan.title, finishedAt: Date.now(), ...(notes.length ? { notes } : {}), ...(plan.photos?.length ? { photos: plan.photos } : {}), ...(plan.readings?.length ? { readings: plan.readings } : {}) }, ...history] });
   };
   const deriveFromPieces = () => {
     const st = getState();
@@ -136,7 +139,12 @@ export function PlanScreen() {
         </section>
       )}
 
-      {plan.bulk && <TempCard />}
+      <div class="grid2 actions">
+        <button class="btn" data-testid="open-temp" onClick={() => { setTempOpen(true); setTimeout(() => document.getElementById('temp-card')?.scrollIntoView({ block: 'center' }), 50); }}>🌡️ טמפרטורה</button>
+        <button class="btn" data-testid="open-photo" onClick={() => setPhotoOpen(true)}>📷 תמונה</button>
+      </div>
+      <TempCard open={tempOpen} stepKind={(next ?? last).kind} />
+      <PhotoStrip photos={plan.photos ?? []} />
 
       {far && next && (
         <button class="btn small jump" onClick={() => nextRef.current?.scrollIntoView({ block: 'center' })}>לשלב הנוכחי</button>
@@ -315,6 +323,7 @@ export function PlanScreen() {
         </>
       )}
 
+      {photoOpen && <PhotoSheet stepTitle={(next ?? last).title} stepId={(next ?? last).id} hasBulk={!!plan.bulk} onClose={() => setPhotoOpen(false)} />}
       {adding && <AddStep branches={branches} track={branchOpen ?? ''} onClose={() => setAdding(false)} onAdd={(c) => { update(addCustom(steps, c)); setAdding(false); }} />}
     </main>
   );
@@ -372,17 +381,18 @@ function AddStep({ branches, track, onClose, onAdd }: { branches: Branch[]; trac
 }
 
 /** Quick temperature input: dough, kitchen, rise. Recomputes the rest of the bulk and the alarms. */
-function TempCard() {
+function TempCard({ open, stepKind }: { open: boolean; stepKind: string }) {
   const { plan, roomTempC } = useStore();
   const [dough, setDough] = useState('');
   const [room, setRoom] = useState(String(roomTempC));
   const [rise, setRise] = useState('');
-  if (!plan?.bulk) return null;
+  const [fridge, setFridge] = useState('');
+  if (!plan) return null;
   const bulk = plan.bulk;
   const readings: Reading[] = plan.readings ?? [];
   const now = Date.now();
-  const started = now >= bulk.startAt;
-  const st = bulkState(readings, now, bulk);
+  const started = !!bulk && now >= bulk.startAt;
+  const st = bulk ? bulkState(readings, now, bulk) : { progress: 0, remainingMin: 0, tempC: roomTempC };
   const lastDough = [...readings].reverse().find((r) => r.doughC !== undefined)?.doughC;
   const roomNum = Number(room) || roomTempC;
   const water = waterTemp({
@@ -396,16 +406,19 @@ function TempCard() {
     if (dough !== '' && !Number.isNaN(Number(dough))) r.doughC = Number(dough);
     if (room !== '' && !Number.isNaN(Number(room))) r.roomC = Number(room);
     if (rise !== '' && !Number.isNaN(Number(rise))) r.risePct = Number(rise);
+    if (fridge !== '' && !Number.isNaN(Number(fridge))) r.fridgeC = Number(fridge);
     const next = [...readings, r];
-    const steps = retimeBulk(plan.steps, bulk, next, r.at);
+    const steps = bulk ? retimeBulk(plan.steps, bulk, next, r.at) : plan.steps;
     setState({ plan: { ...getState().plan!, readings: next, steps, undo: steps === plan.steps ? plan.undo : plan.steps } });
     setDough('');
     setRise('');
+    setFridge('');
   };
 
   return (
-    <section class="card" aria-label="טמפרטורות">
+    <section class={`card ${open ? 'hl' : ''}`} id="temp-card" aria-label="טמפרטורות">
       <strong>טמפרטורות</strong>
+      <span class="muted" data-testid="temp-target">יעד עכשיו ({targetFor(stepKind, roomNum).what}): {targetFor(stepKind, roomNum).text}</span>
       {!started && (
         <span class="muted" data-testid="water-tip">
           לבצק בטמפרטורת <span class="num">{TARGET_DOUGH_C.bread}°</span> השתמש במים בכ־<span class="num">{Math.round(water)}°</span>
@@ -423,7 +436,7 @@ function TempCard() {
           <progress max={100} value={Math.round(st.progress * 100)} aria-label="התקדמות ההתפחה" style="width:100%"></progress>
         </>
       )}
-      <div class="grid3">
+      <div class="grid2">
         <label class="field">
           בצק °C
           <input type="number" inputMode="decimal" value={dough} placeholder="26" onInput={(e) => setDough(e.currentTarget.value)} />
@@ -433,13 +446,96 @@ function TempCard() {
           <input type="number" inputMode="decimal" value={room} onInput={(e) => setRoom(e.currentTarget.value)} />
         </label>
         <label class="field">
+          מקרר °C
+          <input type="number" inputMode="decimal" value={fridge} placeholder="4" onInput={(e) => setFridge(e.currentTarget.value)} />
+        </label>
+        <label class="field">
           עלייה %
           <input type="number" inputMode="decimal" value={rise} placeholder="40" onInput={(e) => setRise(e.currentTarget.value)} />
         </label>
       </div>
       <button class="btn small" onClick={apply}>עדכן את הזמנים</button>
+      {readings.some((x) => x.fridgeC !== undefined) && <span data-testid="fridge-advice">{fridgeTip([...readings].reverse().find((x) => x.fridgeC !== undefined)!.fridgeC!)}</span>}
       {lastDough !== undefined && <span data-testid="dough-advice">{doughTempAdvice(lastDough).text}</span>}
       <span class="muted">{roomTempTip(roomNum)}</span>
     </section>
+  );
+}
+
+function PhotoStrip({ photos }: { photos: PlanPhoto[] }) {
+  if (photos.length === 0) return null;
+  return (
+    <section class="card" aria-label="תמונות מהאפייה" data-testid="photos">
+      <strong>תמונות ({photos.length})</strong>
+      <div class="thumbs">
+        {photos.map((p) => <Thumb p={p} />)}
+      </div>
+    </section>
+  );
+}
+
+function Thumb({ p }: { p: PlanPhoto }) {
+  const url = usePhotoUrl(p.id);
+  return (
+    <figure class="thumb">
+      {url ? <a href={url} target="_blank" rel="noopener"><img src={url} alt={p.label} /></a> : <div class="ph"></div>}
+      <figcaption>{p.label}{p.risePct !== undefined ? ` · עלייה ${p.risePct}%` : ''}<br /><span class="num">{hhmm(p.at)}</span></figcaption>
+    </figure>
+  );
+}
+
+function PhotoSheet({ stepTitle, stepId, hasBulk, onClose }: { stepTitle: string; stepId: string; hasBulk: boolean; onClose: () => void }) {
+  const [label, setLabel] = useState(stepTitle);
+  const [rise, setRise] = useState('');
+  const [busy, setBusy] = useState(false);
+  const onFile = async (e: Event) => {
+    const input = e.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    setBusy(true);
+    try {
+      const id = `ph${Date.now().toString(36)}`;
+      await savePhoto(id, await shrink(file));
+      const cur = getState().plan!;
+      const at = Date.now();
+      const photo: PlanPhoto = { id, at, label: label.trim() || stepTitle, stepId, ...(rise !== '' && !Number.isNaN(Number(rise)) ? { risePct: Number(rise) } : {}) };
+      let steps = cur.steps;
+      let readings = cur.readings ?? [];
+      if (photo.risePct !== undefined) {
+        readings = [...readings, { at, risePct: photo.risePct }];
+        if (cur.bulk) steps = retimeBulk(steps, cur.bulk, readings, at);
+      }
+      setState({ plan: { ...cur, steps, readings, photos: [...(cur.photos ?? []), photo] } });
+      onClose();
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <>
+      <button class="scrim" aria-label="סגור" onClick={onClose}></button>
+      <div class="sheet" role="dialog" aria-label="תמונה חדשה">
+        <strong class="big">תמונה לאפייה</strong>
+        <label class="field">מה בתמונה? <input value={label} onInput={(e) => setLabel(e.currentTarget.value)} /></label>
+        {hasBulk && (
+          <label class="field">
+            כמה הבצק עלה? % (אם מדדת, מעדכן את זמני ההתפחה)
+            <input type="number" inputMode="decimal" value={rise} placeholder="40" onInput={(e) => setRise(e.currentTarget.value)} />
+          </label>
+        )}
+        <div class="grid2">
+          <label class="btn primary" style="cursor:pointer">
+            📷 צלם
+            <input type="file" accept="image/*" capture="environment" aria-label="צלם תמונה" disabled={busy} style="position:absolute;opacity:0;width:1px;height:1px" onChange={onFile} />
+          </label>
+          <label class="btn" style="cursor:pointer">
+            🖼️ מהגלריה
+            <input type="file" accept="image/*" aria-label="בחר תמונה מהגלריה" disabled={busy} style="position:absolute;opacity:0;width:1px;height:1px" onChange={onFile} />
+          </label>
+        </div>
+        {busy && <span class="muted" role="status">שומר…</span>}
+      </div>
+    </>
   );
 }

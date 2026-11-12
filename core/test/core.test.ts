@@ -751,3 +751,14 @@ describe('branches after the split', () => {
     expect(s.some((x) => x.kind === 'custom' && x.track === 'L1')).toBe(true);
   });
 });
+
+import { fridgeTip, targetFor } from '../src/index.js';
+describe('temperature targets', () => {
+  it('suggests a target per step kind and judges the fridge', () => {
+    expect(targetFor('feed').text).toContain('24');
+    expect(targetFor('mix').text).toContain('25');
+    expect(targetFor('fridge').text).toContain('3–5');
+    expect(fridgeTip(9)).toContain('חם');
+    expect(fridgeTip(4)).toContain('בטווח');
+  });
+});
