@@ -1,6 +1,8 @@
 apply plugin: 'com.android.application'
 
-def pkg = new groovy.json.JsonSlurper().parse(file("../../package.json"))
+def pkg = new groovy.json.JsonSlurper().parse(new File(rootProject.projectDir, "../package.json"))
+def runNumber = System.getenv("GITHUB_RUN_NUMBER") ? Integer.parseInt(System.getenv("GITHUB_RUN_NUMBER")) : 1
+def appVersion = pkg.version.toString()
 
 android {
     namespace "com.machmetzet.app"
@@ -9,8 +11,8 @@ android {
         applicationId "com.machmetzet.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInteger()
-        versionName pkg.version
+        versionCode runNumber
+        versionName appVersion
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
