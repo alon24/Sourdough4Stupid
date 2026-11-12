@@ -286,3 +286,9 @@ test('a custom flour is remembered, usable in the mix and deletable', async ({ p
   await page.getByRole('button', { name: 'מחק את דורום' }).click();
   await expect(page.getByRole('combobox', { name: 'סוג קמח' }).first().locator('option', { hasText: 'דורום' })).toHaveCount(0);
 });
+
+test('download page has the APK link and a QR code', async ({ page }) => {
+  await page.getByRole('link', { name: 'הורדת אפליקציית אנדרואיד' }).click();
+  await expect(page.getByRole('link', { name: /הורדת האפליקציה/ })).toHaveAttribute('href', /machmetzet\.apk$/);
+  await expect(page.getByTestId('qr').locator('svg path')).toHaveCount(1);
+});
