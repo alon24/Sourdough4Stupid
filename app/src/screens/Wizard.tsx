@@ -38,6 +38,8 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
   const [at, setAt] = useState(defaultTarget());
   const [picked, setPicked] = useState<string[]>(initial?.inclusions ?? []);
   const [kneading, setKneading] = useState<'hand' | 'machine'>(initial?.kneading ?? 'hand');
+  const [folds, setFolds] = useState(initial?.folds ?? 4);
+  const [foldGap, setFoldGap] = useState(initial?.foldGapMin ?? 0);
   const [cold, setCold] = useState(initial?.cold ?? true);
   const [blendIdx, setBlendIdx] = useState(0);
   const [hydration, setHydration] = useState(initial?.hydration ?? 0.72);
@@ -77,13 +79,13 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
 
   const load = (r: Recipe) => {
     setLoaves(r.loaves); setRolls(r.rolls); setWeight(r.weight); setShape(r.shape); setPicked(r.inclusions);
-    setKneading(r.kneading); setCold(r.cold); setHydration(r.hydration); setMix(r.mix);
+    setKneading(r.kneading); setCold(r.cold); setFolds(r.folds ?? 4); setFoldGap(r.foldGapMin ?? 0); setHydration(r.hydration); setMix(r.mix);
   };
   const saveRecipe = () => {
     const items = mix ?? blend.map((b) => ({ flour: b.id, grams: Math.round(b.pct * 1000) }));
     const r: Recipe = {
       id: initial?.id ?? `r${Date.now()}`, name: name.trim(), fav: initial?.fav ?? false,
-      loaves, rolls, weight, shape, inclusions: picked, kneading, cold, hydration, mix: items,
+      loaves, rolls, weight, shape, inclusions: picked, kneading, cold, folds, foldGapMin: foldGap, hydration, mix: items,
     };
     setState({ recipes: initial ? recipes.map((x) => (x.id === r.id ? r : x)) : [...recipes, r] });
     location.hash = '#/recipes';
@@ -117,6 +119,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
       },
       ...(starterMode ? { buildTarget: want, starterReady: ready } : {}),
       roomTempC, kneading, inclusions, coldProof: cold, hydration, blend,
+      folds, ...(foldGap ? { foldGapMin: foldGap } : {}),
     };
     const parts = [loaves && `${loaves} לחמים`, rolls && `${rolls} לחמניות`, ...picked].filter(Boolean);
     setState({ plan: toActive(plan(input), input, parts.join(' · ')) });
@@ -274,6 +277,20 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
         <button class={kneading === 'hand' ? 'on' : ''} aria-pressed={kneading === 'hand'} onClick={() => setKneading('hand')}>לישה ידנית</button>
         <button class={kneading === 'machine' ? 'on' : ''} aria-pressed={kneading === 'machine'} onClick={() => setKneading('machine')}>מכונה</button>
       </div>
+      <section class="card" aria-label="קיפולים">
+        <div class="row">
+          <strong>קיפולים (לישות)</strong>
+          <Stepper label="קיפולים" value={folds} set={setFolds} max={8} />
+        </div>
+        <label class="field">
+          רווח בין קיפולים
+          <select aria-label="רווח בין קיפולים" value={foldGap} onChange={(e) => setFoldGap(+e.currentTarget.value)}>
+            <option value={0}>אוטומטי ({kneading === 'hand' ? 30 : 45} דק')</option>
+            {[20, 30, 45, 60].map((m) => <option value={m}>{m} דק'</option>)}
+          </select>
+        </label>
+        <span class="muted">4 היא ברירת המחדל: כל קיפול מחזק את הגלוטן בלי לישה ארוכה. בצק רטוב או קמח מלא: אפשר להוסיף. אפשר גם להוסיף ולהסיר בתוך התוכנית.</span>
+      </section>
       <div class="seg" role="group" aria-label="התפחה אחרונה">
         <button class={cold ? 'on' : ''} aria-pressed={cold} onClick={() => setCold(true)}>לילה במקרר</button>
         <button class={!cold ? 'on' : ''} aria-pressed={!cold} onClick={() => setCold(false)}>אפייה באותו יום</button>

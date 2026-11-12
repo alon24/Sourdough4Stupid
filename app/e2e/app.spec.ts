@@ -362,3 +362,17 @@ test('a weak starter in the room needs two strengthening feeds', async ({ page }
   await page.getByRole('button', { name: '30', exact: true }).click();
   await expect(page.getByTestId('starter-advice')).toContainText('שתי האכלות');
 });
+
+test('kneading rounds default to 4, can be set in the wizard and added or removed in the plan', async ({ page }) => {
+  await page.goto('/#/new');
+  await expect(page.getByLabel('כמות קיפולים')).toHaveText('4');
+  await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
+  await expect(page.getByRole('button', { name: /קיפול \d מתוך 4/ })).toHaveCount(4);
+  await page.getByRole('button', { name: /קיפול 4 מתוך 4/ }).click();
+  await expect(page.getByRole('dialog').getByText(/מחזקים את הגלוטן/)).toBeVisible();
+  await page.getByRole('button', { name: 'הוסף קיפול' }).click();
+  await expect(page.getByRole('button', { name: /קיפול \d מתוך 5/ })).toHaveCount(5);
+  await page.getByRole('button', { name: /קיפול 5 מתוך 5/ }).click();
+  await page.getByRole('button', { name: 'הסר קיפול זה' }).click();
+  await expect(page.getByRole('button', { name: /קיפול \d מתוך 4/ })).toHaveCount(4);
+});

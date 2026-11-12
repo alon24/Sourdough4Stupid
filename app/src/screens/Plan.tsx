@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import {
-  bulkState, complete, doughTempAdvice, FRICTION, resumeAt, retimeBulk, roomTempTip, setAlarm, shift, TARGET_DOUGH_C,
+  addFold, removeFold, bulkState, complete, doughTempAdvice, FRICTION, resumeAt, retimeBulk, roomTempTip, setAlarm, shift, TARGET_DOUGH_C,
   waterTemp, type Reading, type Step,
 } from '../../../core/src/index';
 import { dayName, grams, hhmm, toLocalInput, until } from '../format';
@@ -107,6 +107,12 @@ export function PlanScreen() {
               <span class="big num">{hhmm(sel.at)}</span>
             </div>
             {sel.note && <span class="muted">{sel.note}</span>}
+            {sel.kind === 'fold' && sel.doneAt === undefined && (
+              <div class="grid2">
+                <button class="btn small" onClick={() => update(addFold(steps, plan.input?.foldGapMin ?? 30))}>הוסף קיפול</button>
+                <button class="btn small" onClick={() => update(removeFold(steps, sel.id))}>הסר קיפול זה</button>
+              </div>
+            )}
             {sel.doneAt === undefined ? (
               <>
                 <div class="grid3">

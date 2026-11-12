@@ -66,6 +66,8 @@ export interface Recipe {
   inclusions: string[];
   kneading: 'hand' | 'machine';
   cold: boolean;
+  folds?: number;
+  foldGapMin?: number;
   hydration: number;
   /** flour mix as grams per flour */
   mix: { flour: string; grams: number }[];

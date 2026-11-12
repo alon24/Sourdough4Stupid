@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  alarmOps, bulkState, doughTempAdvice, roomTempTip, retimeBulk, bakeProfile, buildChain, doughFromStarter, fits, yieldOptions, complete, setAlarm, hydrationAdvice, suggestHydration, dough, doughForTin, feed, peakHours, plan, PRESETS, ratioForWindow, resumeAt,
+  addFold, removeFold, alarmOps, bulkState, doughTempAdvice, roomTempTip, retimeBulk, bakeProfile, buildChain, doughFromStarter, fits, yieldOptions, complete, setAlarm, hydrationAdvice, suggestHydration, dough, doughForTin, feed, peakHours, plan, PRESETS, ratioForWindow, resumeAt,
   revivalFeeds, seedFor, shift, split, waterTemp,
 } from '../src/index.js';
 
@@ -168,12 +168,26 @@ describe('plan', () => {
     expect(total).toBeGreaterThanOrEqual(p.dough.levain + 30);
   });
 
-  it('puts inclusions in the first fold and has 4 folds by hand, 2 by machine', () => {
+  it('puts inclusions in the first fold and has 4 folds by default, by hand or machine', () => {
     const hand = plan(input);
     expect(hand.steps.filter((s) => s.kind === 'fold')).toHaveLength(4);
     expect(hand.steps.find((s) => s.kind === 'fold')!.note).toContain('זיתים');
     const machine = plan({ ...input, kneading: 'machine' });
-    expect(machine.steps.filter((s) => s.kind === 'fold')).toHaveLength(2);
+    expect(machine.steps.filter((s) => s.kind === 'fold')).toHaveLength(4);
+    expect(plan({ ...input, folds: 6, foldGapMin: 20 }).steps.filter((s) => s.kind === 'fold')).toHaveLength(6);
+  });
+
+  it('adding and removing a fold renumbers, keeps order, and syncs alarms', () => {
+    const { steps } = plan(input);
+    const more = addFold(steps);
+    const folds = more.filter((s) => s.kind === 'fold');
+    expect(folds.map((f) => f.title)).toEqual(['קיפול 1 מתוך 5', 'קיפול 2 מתוך 5', 'קיפול 3 מתוך 5', 'קיפול 4 מתוך 5', 'קיפול 5 מתוך 5']);
+    expect(folds[4]!.at).toBeLessThan(more.find((s) => s.kind === 'divide')!.at);
+    expect(more.every((s, i) => i === 0 || s.at >= more[i - 1]!.at)).toBe(true);
+    expect(alarmOps(steps, more).some((o) => o.op === 'set' && o.id === folds[4]!.id)).toBe(true);
+    const back = removeFold(more, folds[4]!.id);
+    expect(back.filter((s) => s.kind === 'fold')).toHaveLength(4);
+    expect(alarmOps(more, back)).toContainEqual({ op: 'cancel', id: folds[4]!.id });
   });
 
   it('adds revival feeds after a month in the fridge', () => {
