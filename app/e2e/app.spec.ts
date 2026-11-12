@@ -601,3 +601,20 @@ test('the home screen shows the app version', async ({ page }) => {
   await page.goto('/#/');
   await expect(page.getByTestId('version')).toContainText(/^v\d+\.\d+\.\d+/);
 });
+
+test('plan has visible temperature and photo buttons: target shown, fridge advice, photo saved with the bake', async ({ page }) => {
+  await page.goto('/#/new');
+  await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
+  await page.getByTestId('open-temp').click();
+  await expect(page.getByTestId('temp-target')).toContainText('יעד עכשיו');
+  await page.getByLabel('מקרר °C').fill('9');
+  await page.getByRole('button', { name: 'עדכן את הזמנים' }).click();
+  await expect(page.getByTestId('fridge-advice')).toContainText('חם');
+  await page.getByTestId('open-photo').click();
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+  await page.getByLabel('בחר תמונה מהגלריה').setInputFiles({ name: 'a.png', mimeType: 'image/png', buffer: png });
+  await expect(page.getByTestId('photos')).toContainText('תמונות (1)');
+  await expect(page.getByTestId('photos').locator('img')).toBeVisible();
+  await page.reload();
+  await expect(page.getByTestId('photos').locator('img')).toBeVisible();
+});

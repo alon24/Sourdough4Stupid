@@ -13,6 +13,8 @@ export interface Reading {
   roomC?: number;
   /** how much the dough has risen, percent (50 = one and a half times its size) */
   risePct?: number;
+  /** fridge temperature, °C */
+  fridgeC?: number;
 }
 
 export interface BulkOptions {
@@ -93,3 +95,28 @@ export function roomTempTip(roomC: number): string {
 }
 
 export const TARGET_DOUGH_C = { bread: 25, roll: 25, pizza: 24 } as const;
+
+/** The temperature to aim for at a given step, and what to measure. */
+export function targetFor(kind: string, roomC = 24): { what: string; text: string } {
+  switch (kind) {
+    case 'revive': case 'feed':
+      return { what: 'סטארטר', text: 'סטארטר מתפתח הכי טוב ב־24–26°. אם המטבח קר, מקום חם כמו תנור כבוי עם אור.' };
+    case 'autolyse': case 'mix': case 'soak':
+      return { what: 'מים ובצק', text: `יעד לבצק אחרי הערבוב: ${TARGET_DOUGH_C.bread}°. מדוד את הבצק מיד אחרי הערבוב.` };
+    case 'fold':
+      return { what: 'בצק', text: `בצק ב־${TARGET_DOUGH_C.bread - 1}–${TARGET_DOUGH_C.bread + 1}° מתפיח לפי התוכנית. מטבח עכשיו ${roomC}°.` };
+    case 'divide': case 'shape': case 'shapeRolls': case 'enrich':
+      return { what: 'בצק ומקרר', text: 'לפני המקרר מדוד את הבצק, ובמקרר יעד 3–5°. מקרר חם מהיר את ההתפחה הקרה.' };
+    case 'fridge':
+      return { what: 'מקרר', text: 'יעד במקרר 3–5°.' };
+    default:
+      return { what: 'מטבח', text: `טמפרטורת המטבח משפיעה על כל זמני ההתפחה. עכשיו ${roomC}°.` };
+  }
+}
+
+/** Tip for the fridge temperature during the cold proof. */
+export function fridgeTip(c: number): string {
+  if (c > 6) return `${c}° במקרר חם: ההתפחה הקרה מהירה, כדאי לאפות מוקדם יותר או להנמיך את המקרר ל־4°.`;
+  if (c < 2) return `${c}° במקרר קר מאוד: ההתפחה איטית, אפשר להוציא שעה לפני האפייה.`;
+  return `${c}° במקרר בטווח (3–5°).`;
+}
