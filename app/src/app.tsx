@@ -8,7 +8,9 @@ import { Recipes } from './screens/Recipes';
 import { StarterStatus } from './screens/StarterStatus';
 import { Start } from './screens/Start';
 import { Wizard } from './screens/Wizard';
+import { Boundary } from './Boundary';
 import { Reminder } from './Reminder';
+import { UpdateBanner } from './UpdateBanner';
 
 const TABS = [
   { hash: '#/', label: 'בית' },
@@ -32,8 +34,9 @@ export function App() {
 
   return (
     <>
-      <Reminder />
-      {screen}
+      <Boundary resetKey={hash} quiet><Reminder /></Boundary>
+      <UpdateBanner />
+      <Boundary resetKey={hash}>{screen}</Boundary>
       <nav class="tabs" aria-label="ניווט ראשי">
         {TABS.map((t) => (
           <a href={t.hash} aria-current={hash === t.hash ? 'page' : undefined}>
