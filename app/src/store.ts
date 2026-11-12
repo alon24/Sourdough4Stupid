@@ -15,6 +15,10 @@ export interface Starter {
   /** epoch ms of the last feeding */
   lastFedAt: number;
   inFridge: boolean;
+  /** grams on hand */
+  grams?: number;
+  /** reported weak or sluggish: needs strengthening feeds */
+  weak?: boolean;
 }
 
 export interface ActivePlan {

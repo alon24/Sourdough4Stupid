@@ -61,7 +61,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
 
   const [mode, setMode] = useState<'pieces' | 'starter'>('pieces');
   const [want, setWant] = useState(300);
-  const [have, setHave] = useState(30);
+  const [have, setHave] = useState(starter.grams ?? 30);
   const [ready, setReady] = useState(false);
   const nothing = loaves + rolls === 0;
   const starterMode = mode === 'starter';
@@ -112,7 +112,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
     const input: PlanInput = {
       outOfOvenAt: at, loaves, rolls, loafWeight: weight, loafShape: shape,
       starter: {
-        type: starter.type, hydration: starter.hydration, daysInFridge: daysSinceFed(starter),
+        type: starter.type, hydration: starter.hydration, daysInFridge: starter.weak ? Math.max(daysSinceFed(starter), 15) : daysSinceFed(starter),
         ...(starterMode && !ready ? { haveGrams: have } : {}),
       },
       ...(starterMode ? { buildTarget: want, starterReady: ready } : {}),
