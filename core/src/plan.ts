@@ -29,6 +29,8 @@ export interface Step {
   doneAt?: number;
 }
 
+export const FOLD_WHY = 'קיפולים מחזקים את הגלוטן בלי לישה ארוכה. ברירת המחדל 4; אפשר להוסיף או להוריד לפי מגע הבצק.';
+
 export interface PlanInput {
   /** when the loaves come out of the oven, epoch ms */
   outOfOvenAt: number;
@@ -51,6 +53,10 @@ export interface PlanInput {
   starterReady?: boolean;
   roomTempC?: number;
   kneading: 'hand' | 'machine';
+  /** kneading rounds (stretch and folds) during the bulk; default 4 */
+  folds?: number;
+  /** minutes between rounds; default 30 by hand, 45 by machine */
+  foldGapMin?: number;
   inclusions?: (Inclusion & { soak?: boolean })[];
   /** overnight cold proof */
   coldProof?: boolean;
@@ -127,12 +133,12 @@ export function plan(input: PlanInput, now: number = Date.now()): Plan {
   const refMin = 270 * (0.2 / levainPct) ** 0.5;
   const bulkMs = refMin * MIN * tf;
   const mixAt = divideAt - bulkMs;
-  const folds = kneading === 'hand' ? 4 : 2;
-  const foldGap = (kneading === 'hand' ? 30 : 45) * MIN;
+  const folds = Math.max(0, Math.min(8, Math.round(input.folds ?? 4)));
+  const foldGap = (input.foldGapMin ?? (kneading === 'hand' ? 30 : 45)) * MIN;
   for (let i = folds; i >= 1; i--) {
     const withInclusions = i === 1 && inclusions.length > 0;
     add('fold', `קיפול ${i} מתוך ${folds}`, mixAt + i * foldGap, true,
-      withInclusions ? `להוסיף: ${inclusions.map((x) => x.name).join(', ')}` : undefined);
+      (withInclusions ? `להוסיף: ${inclusions.map((x) => x.name).join(', ')}. ` : '') + FOLD_WHY);
   }
   add('mix', 'להוסיף מחמצת ומלח', mixAt);
   const autolyseAt = mixAt - (kneading === 'hand' ? 45 : 30) * MIN;
@@ -283,4 +289,28 @@ export function retimeBulk(
   const newEnd = now + st.remainingMin * MIN;
   const deltaMin = (newEnd - divide.at) / MIN;
   return Math.abs(deltaMin) < 5 ? steps : shift(steps, divide.id, deltaMin, true);
+}
+
+const renumber = (steps: Step[]): Step[] => {
+  const n = steps.filter((s) => s.kind === 'fold').length;
+  let i = 0;
+  return steps.map((s) => (s.kind === 'fold' ? { ...s, title: `קיפול ${++i} מתוך ${n}` } : s)).sort((a, b) => a.at - b.at);
+};
+
+/** One more kneading round after the last one, one gap later (or halfway to shaping if that is too late). */
+export function addFold(steps: Step[], gapMin = 30): Step[] {
+  const folds = steps.filter((s) => s.kind === 'fold');
+  const last = folds[folds.length - 1];
+  const divide = steps.find((s) => s.kind === 'divide');
+  if (!last || !divide) return steps;
+  const wanted = last.at + gapMin * MIN;
+  const at = wanted < divide.at - 20 * MIN ? wanted : last.at + (divide.at - last.at) / 2;
+  const id = `fold-${Math.max(...steps.map((s) => Number(s.id.replace(/\D/g, '')) || 0)) + 1}`;
+  return renumber([...steps, { id, kind: 'fold', title: '', at, alarm: true, note: FOLD_WHY }]);
+}
+
+export function removeFold(steps: Step[], id: string): Step[] {
+  const s = steps.find((x) => x.id === id);
+  if (!s || s.kind !== 'fold') return steps;
+  return renumber(steps.filter((x) => x.id !== id));
 }
