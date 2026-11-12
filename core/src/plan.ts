@@ -16,7 +16,7 @@ const HOUR = 60 * MIN;
 
 export type StepKind =
   | 'revive' | 'feed' | 'soak' | 'autolyse' | 'mix' | 'fold' | 'divide' | 'enrich' | 'shapeRolls'
-  | 'shape' | 'outOfTin' | 'fridge' | 'preheat' | 'bake' | 'uncover' | 'done' | 'bakeRolls' | 'rollsDone';
+  | 'shape' | 'outOfTin' | 'fridge' | 'preheat' | 'bake' | 'uncover' | 'done' | 'bakeRolls' | 'rollsDone' | 'custom';
 
 export interface Step {
   id: string;
@@ -27,6 +27,10 @@ export interface Step {
   alarm: boolean;
   note?: string;
   doneAt?: number;
+  /** after the split: the branch (one loaf, or the rolls) this step belongs to */
+  track?: string;
+  /** the baker's own note on this step */
+  userNote?: string;
 }
 
 export const ROLL_BAKE = 'תנור 230° עם תבנית מים רותחים בתחתית. חריץ קטן בראש כל לחמנייה, אפשר להבריש מים ולפזר שומשום, פרג או שיבולת שועל. 12 דק\' עם אדים, להוציא את תבנית המים, להנמיך ל־210° ועוד 8–10 דק\' עד השחמה עמוקה. מהמקרר ישר לתנור.';

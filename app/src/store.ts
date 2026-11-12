@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { alarmOps, type PlanInput, registerFlours, type FlourInfo, type AlarmOp, type Reading, type Step, type StarterType } from '../../core/src/index';
+import { alarmOps, type PlanInput, registerFlours, type FlourInfo, type AlarmOp, type Reading, type Step, type Branch, type StarterType } from '../../core/src/index';
 
 /** Provided by the Android wrapper (real alarm clock). Absent in the browser. */
 declare global {
@@ -39,6 +39,10 @@ export interface ActivePlan {
   /** start of the bulk and its length at 24°C, for temperature-aware retiming */
   bulk?: { startAt: number; refMin: number; startC: number };
   readings?: Reading[];
+  /** after the split: one branch per loaf and one for the rolls */
+  branches?: Branch[];
+  /** total dough, for recomputing the split */
+  total?: number;
 }
 
 export interface FlourPreset {
@@ -93,7 +97,7 @@ export interface State {
   starter: Starter;
   plan: ActivePlan | null;
   roomTempC: number;
-  history: { title: string; finishedAt: number }[];
+  history: { title: string; finishedAt: number; notes?: string[] }[];
 }
 
 const KEY = 'machmetzet.v1';
