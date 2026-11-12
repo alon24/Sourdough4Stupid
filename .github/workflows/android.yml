@@ -6,7 +6,7 @@ on:
     paths: ['app/**', 'core/**', '.github/workflows/android.yml']
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 jobs:
   apk:
     runs-on: ubuntu-latest
@@ -33,12 +33,3 @@ jobs:
         with:
           name: machmetzet-apk
           path: app/android/app/build/outputs/apk/debug/app-debug.apk
-      - name: Publish latest APK
-        if: github.ref == 'refs/heads/main'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        working-directory: .
-        run: |
-          cp app/android/app/build/outputs/apk/debug/app-debug.apk machmetzet.apk
-          gh release delete latest-apk --yes --cleanup-tag || true
-          gh release create latest-apk machmetzet.apk --prerelease --title "Latest Android build" --notes "Built from ${GITHUB_SHA::7}. Install on the phone to get real alarm-clock alarms."

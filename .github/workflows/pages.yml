@@ -27,7 +27,19 @@ jobs:
         working-directory: app
       - run: npm run build
         working-directory: app
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - run: npx cap sync android
+        working-directory: app
+      - run: ./gradlew assembleDebug --no-daemon
+        working-directory: app/android
+      - name: Put the APK next to the web app
+        run: cp app/android/app/build/outputs/apk/debug/app-debug.apk app/dist/machmetzet.apk
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: app/dist
