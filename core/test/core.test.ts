@@ -516,3 +516,13 @@ describe('temperature-aware bulk', () => {
     expect(retimeBulk(p.steps, p.bulk, [], p.bulk.startAt - 1)).toBe(p.steps);
   });
 });
+
+describe('custom flours', () => {
+  it('a registered flour takes part in the hydration advice and can be removed', async () => {
+    const { registerFlours, suggestHydration } = await import('../src/index');
+    registerFlours([{ id: 'x', name: 'שיפון כהה', absorption: 0.3 }]);
+    expect(suggestHydration([{ id: 'white', pct: 0.5 }, { id: 'x', pct: 0.5 }])).toBe(0.85);
+    registerFlours([]);
+    expect(() => suggestHydration([{ id: 'x', pct: 1 }])).toThrow();
+  });
+});
