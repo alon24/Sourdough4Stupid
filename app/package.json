@@ -12,7 +12,8 @@
   "dependencies": {
     "@capacitor/android": "^6.2.3",
     "@capacitor/core": "^6.2.3",
-    "preact": "^10.24.0"
+    "preact": "^10.24.0",
+    "qrcode-generator": "^1.4.4"
   },
   "devDependencies": {
     "@capacitor/cli": "^6.2.3",
