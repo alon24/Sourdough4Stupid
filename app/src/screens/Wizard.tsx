@@ -38,6 +38,9 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
   const [at, setAt] = useState(defaultTarget());
   const [picked, setPicked] = useState<string[]>(initial?.inclusions ?? []);
   const [kneading, setKneading] = useState<'hand' | 'machine'>(initial?.kneading ?? 'hand');
+  const [autolyse, setAutolyse] = useState(initial?.autolyse ?? true);
+  const [enrich, setEnrich] = useState<'none' | 'oil' | 'silan'>(initial?.rollEnrich ?? 'none');
+  const [overnight, setOvernight] = useState(false);
   const [folds, setFolds] = useState(initial?.folds ?? 4);
   const [foldGap, setFoldGap] = useState(initial?.foldGapMin ?? 0);
   const [cold, setCold] = useState(initial?.cold ?? true);
@@ -85,20 +88,20 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
     ? yieldOptions(want, { loafWeight: weight, hydration, inclusionPct: incl }).slice(0, 6)
     : [];
   const chain = starterMode && !ready && want > 0 && have > 0
-    ? buildChain({ have, target: want, type: starter.type, hydration: starter.hydration, tempC: roomTempC })
+    ? buildChain({ have, target: want, type: starter.type, hydration: starter.hydration, tempC: roomTempC, overnight })
     : [];
   const chainHours = chain.reduce((sum, c) => sum + c.hours, 0);
   const toggle = (name: string) => setPicked(picked.includes(name) ? picked.filter((x) => x !== name) : [...picked, name]);
 
   const load = (r: Recipe) => {
     setLoaves(r.loaves); setRolls(r.rolls); setWeight(r.weight); setShape(r.shape); setPicked(r.inclusions);
-    setKneading(r.kneading); setCold(r.cold); setFolds(r.folds ?? 4); setFoldGap(r.foldGapMin ?? 0); setHydration(r.hydration); setMix(r.mix);
+    setKneading(r.kneading); setCold(r.cold); setFolds(r.folds ?? 4); setFoldGap(r.foldGapMin ?? 0); setAutolyse(r.autolyse ?? true); setEnrich(r.rollEnrich ?? 'none'); setHydration(r.hydration); setMix(r.mix);
   };
   const saveRecipe = () => {
     const items = mix ?? blend.map((b) => ({ flour: b.id, grams: Math.round(b.pct * 1000) }));
     const r: Recipe = {
       id: initial?.id ?? `r${Date.now()}`, name: name.trim(), fav: initial?.fav ?? false,
-      loaves, rolls, weight, shape, inclusions: picked, kneading, cold, folds, foldGapMin: foldGap, hydration, mix: items,
+      loaves, rolls, weight, shape, inclusions: picked, kneading, cold, folds, foldGapMin: foldGap, autolyse, rollEnrich: enrich, hydration, mix: items,
     };
     setState({ recipes: initial ? recipes.map((x) => (x.id === r.id ? r : x)) : [...recipes, r] });
     location.hash = '#/recipes';
@@ -132,7 +135,9 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
       },
       ...(starterMode ? { buildTarget: want, starterReady: ready } : {}),
       roomTempC, kneading, inclusions, coldProof: cold, hydration, blend,
-      folds, ...(foldGap ? { foldGapMin: foldGap } : {}),
+      folds, ...(foldGap ? { foldGapMin: foldGap } : {}), autolyse,
+      ...(enrich !== 'none' && rolls > 0 ? { rollEnrich: enrich } : {}),
+      ...(starterMode && !ready ? { overnightFeed: overnight } : {}), ...(starterMode ? { useAllStarter: true } : {}),
     };
     const parts = [loaves && `${loaves} לחמים`, rolls && `${rolls} לחמניות`, ...picked].filter(Boolean);
     setState({ plan: toActive(plan(input), input, parts.join(' · ')) });
@@ -184,6 +189,12 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
             <input type="checkbox" checked={ready} onChange={(e) => setReady(e.currentTarget.checked)} style="width:24px;height:24px" />
             הסטארטר כבר מוכן ועל השיא
           </label>
+          {!ready && (
+            <label class="row" style="justify-content:flex-start;min-height:48px">
+              <input type="checkbox" checked={overnight} onChange={(e) => setOvernight(e.currentTarget.checked)} style="width:24px;height:24px" />
+              האכלה אחת ללילה (1:6:3, כ־10–12 שעות בחדר)
+            </label>
+          )}
           {chain.length > 0 && (
             <span data-testid="chain" class="muted">
               {chain.length === 1 ? 'האכלה אחת' : `${chain.length} האכלות`}, בסך הכול כ־<span class="num">{Math.round(chainHours)}</span> שעות לפני הערבוב.
@@ -299,6 +310,20 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
         <button class={kneading === 'hand' ? 'on' : ''} aria-pressed={kneading === 'hand'} onClick={() => setKneading('hand')}>לישה ידנית</button>
         <button class={kneading === 'machine' ? 'on' : ''} aria-pressed={kneading === 'machine'} onClick={() => setKneading('machine')}>מכונה</button>
       </div>
+      <div class="seg" role="group" aria-label="אוטוליזה">
+        <button class={autolyse ? 'on' : ''} aria-pressed={autolyse} onClick={() => setAutolyse(true)}>עם אוטוליזה</button>
+        <button class={!autolyse ? 'on' : ''} aria-pressed={!autolyse} onClick={() => setAutolyse(false)}>הכול יחד, בלי אוטוליזה</button>
+      </div>
+      {rolls > 0 && (
+        <label class="field">
+          העשרת הלחמניות (רק אחרי החלוקה)
+          <select aria-label="העשרת הלחמניות" value={enrich} onChange={(e) => setEnrich(e.currentTarget.value as 'none' | 'oil' | 'silan')}>
+            <option value="none">בלי: כמו הלחם</option>
+            <option value="oil">שמן זית (כ־5.5%)</option>
+            <option value="silan">סילאן (כ־5.5%)</option>
+          </select>
+        </label>
+      )}
       <section class="card" aria-label="קיפולים">
         <div class="row">
           <strong>קיפולים (לישות)</strong>

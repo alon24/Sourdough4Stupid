@@ -438,3 +438,29 @@ test('apk link is a plain download link, the service worker leaves .apk alone, a
   const sw = await (await request.get('/sw.js')).text();
   expect(sw).toMatch(/denylist:\[\/\\\.apk\$\/\]/);
 });
+
+test('reference bake: 32 g stiff, 300 g tomorrow, 2 loaves of 1 kg + rolls, split and enrichment shown', async ({ page }) => {
+  await page.goto('/#/new');
+  await page.getByRole('button', { name: 'מכמה סטארטר' }).click();
+  await page.getByLabel('רוצה סטארטר (גרם)').fill('300');
+  await page.getByLabel('יש לי עכשיו (גרם)').fill('32');
+  await page.getByRole('combobox', { name: 'משקל לחם' }).selectOption('1000');
+  for (let i = 0; i < 7; i++) await page.getByRole('button', { name: 'עוד לחמניות' }).click();
+  await page.getByText('האכלה אחת ללילה').click();
+  await expect(page.getByTestId('chain')).toContainText('האכלה אחת');
+  await page.getByRole('button', { name: /הכול יחד/ }).click();
+  await page.getByRole('combobox', { name: 'העשרת הלחמניות' }).selectOption('oil');
+  await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
+  await expect(page.getByTestId('split')).toContainText('2 כיכרות × 1000');
+  await expect(page.getByTestId('split')).toContainText('7 לחמניות');
+  await page.getByRole('button', { name: /להאכיל סטארטר/ }).click();
+  await expect(page.getByRole('dialog')).toContainText('32 ג\' סטארטר');
+  await expect(page.getByRole('dialog')).toContainText('X עמוק');
+  await page.getByRole('button', { name: 'סגור' }).click({ position: { x: 5, y: 5 } });
+  await page.getByRole('button', { name: /לחלק: כיכרות ולחמניות/ }).click();
+  await expect(page.getByRole('dialog')).toContainText('בלי קמח');
+  await expect(page.getByRole('dialog')).toContainText('50%–60%');
+  await page.getByRole('button', { name: 'סגור' }).click({ position: { x: 5, y: 5 } });
+  await expect(page.getByRole('button', { name: /להעשיר את הלחמניות/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /אוטוליזה: קמח ומים/ })).toHaveCount(0);
+});

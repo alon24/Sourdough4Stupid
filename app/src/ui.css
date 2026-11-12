@@ -58,7 +58,8 @@ label.field input, label.field select { min-height: 52px; border-radius: 18px; b
 .step.done .dot { background: var(--ink); }
 .step.next { background: var(--sun); color: #2B1D3A; padding: 12px; }
 .step.next .title { font-weight: 800; font-size: 18px; }
-.step .note { font-size: 13px; display: block; font-weight: 400; }
+.step .note { font-size: 13px; display: block; font-weight: 400; white-space: pre-line; }
+.sheet .muted { white-space: pre-line; }
 .sheet { position: fixed; inset: auto 0 0 0; max-width: 480px; margin: 0 auto; background: var(--card); border-radius: 28px 28px 0 0; padding: 20px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 -8px 40px rgba(0,0,0,.25); z-index: 5; }
 .scrim { position: fixed; inset: 0; background: rgba(0,0,0,.4); border: 0; z-index: 4; }
 nav.tabs { position: sticky; bottom: 0; margin: 0 12px 12px; background: var(--card); border-radius: 28px; min-height: 68px; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; align-items: center; box-shadow: 0 4px 24px rgba(43,29,58,.12); }

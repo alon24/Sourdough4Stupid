@@ -27,6 +27,8 @@ export interface ChainOptions {
   windowH?: number;
   margin?: number;
   keep?: number;
+  /** one big overnight feeding (stiff 1:6:3, liquid 1:5:5, about 11 h) instead of several short ones, when `have` allows */
+  overnight?: boolean;
 }
 
 export const MAX_STAGES = 4;
@@ -34,6 +36,18 @@ export const MAX_STAGES = 4;
 /** Fewest feedings that get from `have` to `target`; each one is sized so nothing is wasted. */
 export function buildChain(o: ChainOptions): Stage[] {
   if (o.have <= 0 || o.target <= 0) throw new RangeError('have and target must be positive');
+  if (o.overnight) {
+    const keepG = o.keep ?? 30;
+    const need = o.target + keepG;
+    const seed = Math.min(o.have, need / 10);
+    if (need / 10 <= o.have * 1.05 + 1e-9) {
+      // flour and water make up the rest, split in the overnight ratio (stiff 2:1 flour:water = 50%)
+      const stiff = o.type === 'stiff';
+      const addFlour = (need - seed) * (stiff ? 2 / 3 : 0.5);
+      const addWater = need - seed - addFlour;
+      return [{ seed, ratio: { a: addFlour / seed, b: addWater / seed }, addFlour, addWater, total: need, hours: 11 }];
+    }
+  }
   const choice = ratioForWindow(o.windowH ?? 10, {
     type: o.type, hydration: o.hydration, tempC: o.tempC, speedFactor: o.speedFactor,
   });

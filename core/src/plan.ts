@@ -15,7 +15,7 @@ const MIN = 60_000;
 const HOUR = 60 * MIN;
 
 export type StepKind =
-  | 'revive' | 'feed' | 'soak' | 'autolyse' | 'mix' | 'fold' | 'divide'
+  | 'revive' | 'feed' | 'soak' | 'autolyse' | 'mix' | 'fold' | 'divide' | 'enrich'
   | 'shape' | 'outOfTin' | 'fridge' | 'preheat' | 'bake' | 'uncover' | 'done' | 'bakeRolls' | 'rollsDone';
 
 export interface Step {
@@ -29,6 +29,34 @@ export interface Step {
   doneAt?: number;
 }
 
+export const ROLL_BAKE = 'תנור 230° עם תבנית מים רותחים בתחתית. חריץ קטן בראש כל לחמנייה, אפשר להבריש מים ולפזר שומשום, פרג או שיבולת שועל. 12 דק\' עם אדים, להוציא את תבנית המים, להנמיך ל־210° ועוד 8–10 דק\' עד השחמה עמוקה. מהמקרר ישר לתנור.';
+
+export const BULK_DONE = 'הבצק גדל ב־50%–60%: כיפה מעוגלת, רועד כשמטלטלים את הקערה, ובועות בצדדים ובתחתית.';
+
+export interface Split {
+  loaves: number;
+  loafWeight: number;
+  rolls: number;
+  /** grams per roll */
+  rollWeight: number;
+  /** dough that goes to the rolls */
+  rollDough: number;
+  total: number;
+}
+
+/** What to cut at the end of the bulk. */
+export function splitOf(total: number, loaves: number, loafWeight: number, rolls: number): Split {
+  const rollDough = Math.max(0, total - loaves * loafWeight);
+  return { loaves, loafWeight, rolls, rollWeight: rolls > 0 ? rollDough / rolls : 0, rollDough, total };
+}
+
+export const splitText = (sp: Split): string =>
+  [
+    sp.loaves > 0 && `${sp.loaves} כיכרות × ${Math.round(sp.loafWeight)} ג'`,
+    sp.rolls > 0 && `${sp.rolls} לחמניות × ${Math.round(sp.rollWeight)} ג' (${Math.round(sp.rollDough)} ג' בסך הכול)`,
+  ].filter(Boolean).join(' + ');
+
+export const ENRICH_PCT = 0.055;
 export const FOLD_WHY = 'קיפולים מחזקים את הגלוטן בלי לישה ארוכה. ברירת המחדל 4; אפשר להוסיף או להוריד לפי מגע הבצק.';
 
 export interface PlanInput {
@@ -55,6 +83,14 @@ export interface PlanInput {
   kneading: 'hand' | 'machine';
   /** kneading rounds (stretch and folds) during the bulk; default 4 */
   folds?: number;
+  /** size the dough so that all of `buildTarget` (the starter you build) goes into it */
+  useAllStarter?: boolean;
+  /** autolyse before mixing (default true); false means everything goes in together */
+  autolyse?: boolean;
+  /** one big overnight feeding instead of several short ones */
+  overnightFeed?: boolean;
+  /** enrich only the rolls after the split */
+  rollEnrich?: 'oil' | 'silan';
   /** minutes between rounds; default 30 by hand, 45 by machine */
   foldGapMin?: number;
   inclusions?: (Inclusion & { soak?: boolean })[];
@@ -84,8 +120,9 @@ export function plan(input: PlanInput, now: number = Date.now()): Plan {
   const {
     outOfOvenAt, loaves, rolls, starter, kneading,
     loafWeight = 900, loafShape = 'free', rollWeight = 90, roomTempC = 24, coldProof = true,
-    feedWindowH = 10, hydration = 0.72, salt = 0.02, levainPct = 0.2,
+    feedWindowH = 10, hydration = 0.72, salt = 0.02,
   } = input;
+  let levainPct = input.levainPct ?? 0.2;
   const inclusions = input.inclusions ?? [];
   if (loaves < 0 || rolls < 0 || loaves + rolls === 0) throw new RangeError('nothing to bake');
 
@@ -93,7 +130,11 @@ export function plan(input: PlanInput, now: number = Date.now()): Plan {
   if (loaves > 0) pieces.push({ name: 'loaf', count: loaves, weight: loafWeight });
   if (rolls > 0) pieces.push({ name: 'roll', count: rolls, weight: rollWeight });
   const flours = (input.blend ?? [{ id: 'white', pct: 1 }]).map((b) => ({ name: flourName(b.id), pct: b.pct }));
-  const d = dough({ pieces, hydration, salt, levainPct, levainHydration: starter.hydration, inclusions, flours });
+  let d = dough({ pieces, hydration, salt, levainPct, levainHydration: starter.hydration, inclusions, flours });
+  if (input.useAllStarter && input.buildTarget && input.levainPct === undefined) {
+    levainPct = Math.min(0.3, Math.max(0.1, input.buildTarget / d.totalFlour));
+    d = dough({ pieces, hydration, salt, levainPct, levainHydration: starter.hydration, inclusions, flours });
+  }
 
   const steps: Step[] = [];
   let n = 0;
@@ -112,12 +153,12 @@ export function plan(input: PlanInput, now: number = Date.now()): Plan {
     add('bake', `לאפות: ${bp.coveredTemp}° מכוסה, ${bp.coveredMin} דק'`, bakeStart, true,
       tin ? 'לכסות בתבנית הפוכה או בנייר כסף, או תבנית קרח בתחתית התנור' : 'אפשר להוסיף 2-3 קוביות קרח לסיר');
     if (rolls > 0) {
-      add('bakeRolls', 'לאפות לחמניות: 230° עם אדים', outOfOvenAt + 5 * MIN);
+      add('bakeRolls', 'לאפות לחמניות: 230° עם אדים', outOfOvenAt + 5 * MIN, true, ROLL_BAKE);
       add('rollsDone', 'להוציא את הלחמניות', outOfOvenAt + 25 * MIN);
     }
   } else {
     add('rollsDone', 'להוציא את הלחמניות', outOfOvenAt);
-    add('bakeRolls', 'לאפות לחמניות: 230° עם אדים', bakeStart);
+    add('bakeRolls', 'לאפות לחמניות: 230° עם אדים', bakeStart, true, ROLL_BAKE);
   }
   add('preheat', `לחמם תנור ל־${hasLoaves ? bp.coveredTemp : 230}°`, bakeStart - (tin ? 30 : 60) * MIN);
 
@@ -127,7 +168,19 @@ export function plan(input: PlanInput, now: number = Date.now()): Plan {
   add('shape', tin ? (coldProof ? 'לעצב לגליל, לתבנית משומנת ולמקרר' : 'לעצב לגליל ולתבנית משומנת') : (coldProof ? 'לעצב ולמקרר' : 'לעצב'), shapeAt, true,
     tin ? 'התפחה עד שהבצק מגיע לשפת התבנית. אין צורך בחריצה' : undefined);
   const divideAt = shapeAt - 30 * MIN;
-  add('divide', rolls > 0 && hasLoaves ? 'לחלק לבצק לחם ולחמניות, עיצוב מוקדם' : 'עיצוב מוקדם', divideAt);
+  const split = splitOf(d.totalDough, loaves, loafWeight, rolls);
+  const loafHow = 'כיכרות: עיצוב מוקדם, מנוחה 15–20 דק\', עיצוב סופי לסלסילות, ' + (coldProof ? 'ישר למקרר ללילה.' : 'ולהתפיח.');
+  const rollHow = 'לחמניות: כדורים מתוחים על משטח בלי קמח (כדי שיהיה אחיזה), 5–7 ס"מ ביניהן על נייר אפייה, ' +
+    (coldProof ? 'לכסות היטב: למקרר ללילה ולאפות קר, או להתפיח בחוץ 1.5–2 שעות ולאפות היום.' : 'לכסות ולהתפיח 1.5–2 שעות.');
+  add('divide', rolls > 0 && hasLoaves ? 'לחלק: כיכרות ולחמניות' : 'עיצוב מוקדם', divideAt, true,
+    [BULK_DONE, rolls > 0 && hasLoaves ? `לחלק: ${splitText(split)}` : undefined, hasLoaves ? loafHow : undefined, rolls > 0 ? rollHow : undefined]
+      .filter(Boolean).join('\n'));
+  if (rolls > 0 && input.rollEnrich) {
+    const g = Math.round(split.rollDough * ENRICH_PCT);
+    const what = input.rollEnrich === 'oil' ? `${g} ג' שמן זית` : `${g} ג' סילאן`;
+    add('enrich', 'להעשיר את הלחמניות', divideAt + 5 * MIN, true,
+      `רק לחלק של הלחמניות (${Math.round(split.rollDough)} ג'): ${what}, בלמינציה וקיפול 2–3 דק', מנוחה 15 דק', ואז לחלק ולעצב. הכיכרות נשארות רזות.`);
+  }
 
   // bulk: 4.5 h at 24°C with 20% levain; more levain is faster
   const refMin = 270 * (0.2 / levainPct) ** 0.5;
@@ -140,9 +193,15 @@ export function plan(input: PlanInput, now: number = Date.now()): Plan {
     add('fold', `קיפול ${i} מתוך ${folds}`, mixAt + i * foldGap, true,
       (withInclusions ? `להוסיף: ${inclusions.map((x) => x.name).join(', ')}. ` : '') + FOLD_WHY);
   }
-  add('mix', 'להוסיף מחמצת ומלח', mixAt);
-  const autolyseAt = mixAt - (kneading === 'hand' ? 45 : 30) * MIN;
-  add('autolyse', 'אוטוליזה: קמח ומים', autolyseAt);
+  const useAutolyse = input.autolyse !== false;
+  add('mix', useAutolyse ? 'להוסיף מחמצת ומלח' : 'לערבב הכול יחד ולמוך', mixAt, true,
+    useAutolyse
+      ? 'מערבבים את הסטארטר, ואחריו המלח עם קצת מהמים שנשארו.'
+      : 'מפוררים את הסטארטר במים, מוסיפים קמח ומלח, ולשים 6–8 דק\' עד בצק חלק ואלסטי שנפרד מהדפנות. אחר כך 30 דק\' מנוחה לפני הקיפול הראשון.');
+  if (useAutolyse) {
+    const autolyseAt = mixAt - (kneading === 'hand' ? 45 : 30) * MIN;
+    add('autolyse', 'אוטוליזה: קמח ומים', autolyseAt, true, 'לערבב את הקמח עם רוב המים ולהשאיר לנוח. הקמח הלבן צריך פחות זמן (30–40 דק\').');
+  }
   const soaked = inclusions.filter((x) => x.soak);
   if (soaked.length > 0) {
     add('soak', `להשרות: ${soaked.map((x) => x.name).join(', ')}`, mixAt, false);
@@ -155,7 +214,7 @@ export function plan(input: PlanInput, now: number = Date.now()): Plan {
     : buildChain({
         have: starter.haveGrams ?? Number.MAX_SAFE_INTEGER, target,
         type: starter.type, hydration: starter.hydration,
-        tempC: roomTempC, speedFactor: starter.speedFactor, windowH: feedWindowH,
+        tempC: roomTempC, speedFactor: starter.speedFactor, windowH: feedWindowH, overnight: input.overnightFeed,
       });
   const revive = revivalFeeds(starter.daysInFridge);
   let feedAt = mixAt;
@@ -165,9 +224,12 @@ export function plan(input: PlanInput, now: number = Date.now()): Plan {
     if (i === 0) feedAt = at;
     const r = st.ratio;
     const label = chain.length > 1 ? `האכלה ${i + 1} מתוך ${chain.length}` : 'להאכיל סטארטר';
-    add('feed', `${label} 1:${r.a}:${+r.b.toFixed(1)}`, at, true,
+    add('feed', `${label} 1:${+r.a.toFixed(1)}:${+r.b.toFixed(1)}`, at, true,
       `${Math.round(st.seed)} ג' סטארטר + ${Math.round(st.addFlour)} ג' קמח + ${Math.round(st.addWater)} ג' מים` +
-        (fromEnd === 0 ? ` (יוצא ${Math.round(st.total)} ג')` : ''));
+        (fromEnd === 0 ? ` (יוצא ${Math.round(st.total)} ג')` : '') +
+        (input.overnightFeed && chain.length === 1
+          ? `. לפרק את הסטארטר במים פושרים, להוסיף קמח וללוש 3–4 דק' לכדור קשה וחלק, לגלגל למתח ולחרוץ X עמוק, בצנצנת סגורה בחדר (20–22°) כ־10–12 שעות. בבוקר החריץ נפתח כפרח והנפח יותר מכפול. לשמור 30 ג' בצד במקרר כגרעין לפעם הבאה, לפני שמערבבים את השאר לבצק.`
+          : ''));
   });
   if (chain.length > 0) {
     for (let i = 1; i <= revive; i++) {
