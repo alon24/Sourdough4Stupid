@@ -502,3 +502,58 @@ test('refreshing any screen never fetches or navigates to the APK; the QR points
   expect(target).not.toMatch(/\.apk/);
   expect(apk, 'no APK request or download happened on reload').toEqual([]);
 });
+
+const seedPlanWithDueStep = async (page: import('@playwright/test').Page) => {
+  await page.goto('/#/new');
+  await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
+  await page.evaluate(() => {
+    const k = 'machmetzet.v1';
+    const s = JSON.parse(localStorage.getItem(k)!);
+    const past = Date.now() - 3 * 3_600_000;
+    s.plan.steps = s.plan.steps.map((st: any, i: number) => ({ ...st, at: past + i * 60_000 }));
+    localStorage.setItem(k, JSON.stringify(s));
+  });
+};
+
+const TAB_ROUTES: [string, RegExp][] = [['תוכנית', /#\/plan$/], ['אפייה', /#\/new$/], ['מתכונים', /#\/recipes$/], ['מחשבון', /#\/calc$/], ['בית', /#\/$/]];
+
+test('tabs work with an overdue step, granted notifications that throw, and a tall toast (tapped like a phone)', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.addInitScript(() => {
+    class Boom { static permission = 'granted'; static requestPermission = async () => 'granted'; constructor() { throw new TypeError('Illegal constructor'); } }
+    (window as any).Notification = Boom;
+  });
+  await seedPlanWithDueStep(page);
+  await page.reload();
+  await expect(page.getByRole('alert')).toBeVisible();
+  for (const [name, re] of TAB_ROUTES) {
+    await page.locator('nav.tabs').getByText(name, { exact: true }).tap();
+    await expect(page).toHaveURL(re);
+  }
+  expect(errors).toEqual([]);
+});
+
+test('a screen that throws shows a message and the tabs keep working', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('machmetzet.v1') ?? '{}');
+    s.plan = { title: 'x', createdAt: 0, steps: 'broken', amounts: [], build: '' };
+    localStorage.setItem('machmetzet.v1', JSON.stringify(s));
+  });
+  await page.goto('/#/plan');
+  await page.reload();
+  await expect(page.getByText('משהו השתבש במסך הזה')).toBeVisible();
+  await page.locator('nav.tabs').getByText('מחשבון', { exact: true }).tap();
+  await expect(page.getByRole('heading', { name: 'כמה להאכיל?' })).toBeVisible();
+  await page.locator('nav.tabs').getByText('מתכונים', { exact: true }).tap();
+  await expect(page.getByRole('heading', { name: 'מתכונים', exact: true })).toBeVisible();
+});
+
+test('the service worker registers and the app keeps working after a reload under it', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
+  await page.reload();
+  await page.locator('nav.tabs').getByText('תוכנית', { exact: true }).tap();
+  await expect(page).toHaveURL(/#\/plan$/);
+});
