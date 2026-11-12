@@ -58,6 +58,7 @@ export function Home() {
       )}
 
       <AlarmCheck />
+      <span class="muted" data-testid="version" style="direction:ltr;text-align:left;font-size:12px">v{__APP_VERSION__}</span>
 
       <div class="grid2">
         <a class="btn primary" href="#/new" style="display:flex;align-items:center;justify-content:center;text-decoration:none">אפייה חדשה</a>
