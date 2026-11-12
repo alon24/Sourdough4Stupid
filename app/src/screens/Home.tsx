@@ -1,6 +1,9 @@
+import { Capacitor } from '@capacitor/core';
 import { AlarmCheck } from './Alarms';
 import { dayName, hhmm, until } from '../format';
 import { daysSinceFed, setState, useStore } from '../store';
+
+const isApk = Capacitor.isNativePlatform();
 
 export function Home() {
   const { starter, plan } = useStore();
@@ -18,9 +21,12 @@ export function Home() {
 
   return (
     <main>
-      <div>
-        <span class="muted">שלום!</span>
-        <h1>מה אופים היום?</h1>
+      <div class="row" style="align-items:flex-start">
+        <div>
+          <span class="muted">שלום!</span>
+          <h1>מה אופים היום?</h1>
+        </div>
+        <span class="muted" data-testid="version" style="direction:ltr;font-size:12px;white-space:nowrap">v{__APP_VERSION__}{isApk ? ' · APK' : ''}</span>
       </div>
 
       <section class="card sun" aria-label="הסטארטר שלי">
@@ -58,7 +64,6 @@ export function Home() {
       )}
 
       <AlarmCheck />
-      <span class="muted" data-testid="version" style="direction:ltr;text-align:left;font-size:12px">v{__APP_VERSION__}</span>
 
       <div class="grid2">
         <a class="btn primary" href="#/new" style="display:flex;align-items:center;justify-content:center;text-decoration:none">אפייה חדשה</a>
