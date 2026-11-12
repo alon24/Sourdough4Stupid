@@ -712,3 +712,42 @@ describe('roll instructions have their own step', () => {
     expect(plan({ outOfOvenAt: Date.UTC(2026, 10, 14, 7, 0), loaves: 2, rolls: 0, starterReady: true, starter: { type: 'stiff', hydration: 0.5, daysInFridge: 0 }, kneading: 'hand' }, 0).steps.some((s) => s.kind === 'shapeRolls')).toBe(false);
   });
 });
+
+import { addCustom, addLoaf, branchSummary, removeBranch, setWeight, setWhere, withTracks } from '../src/index.js';
+
+describe('branches after the split', () => {
+  const input = {
+    outOfOvenAt: new Date('2026-11-13T12:00:00').getTime(), loaves: 2, rolls: 8, starter: { type: 'stiff' as const, hydration: 0.5, daysInFridge: 0, haveGrams: 100 },
+    kneading: 'machine' as const, loafWeight: 1000, rollWeight: 97, starterReady: true,
+  };
+  const p = plan(input as never, new Date('2026-11-12T08:00:00').getTime());
+  const t = withTracks(p.steps, input as never, p.dough.totalDough);
+  it('makes a branch per loaf plus the rolls, each with its own steps', () => {
+    expect(t.branches.map((b) => b.id)).toEqual(['L1', 'L2', 'rolls']);
+    for (const b of t.branches) expect(t.steps.some((s) => s.track === b.id)).toBe(true);
+    expect(t.steps.filter((s) => s.kind === 'bake')).toHaveLength(2);
+    expect(branchSummary(t.branches)).toContain('2 כיכרות × 1000');
+  });
+  it('baking one loaf now moves only that loaf', () => {
+    const now = new Date('2026-11-13T09:00:00').getTime();
+    const before = t.steps.filter((s) => s.track === 'L2').map((s) => s.at);
+    const r = setWhere(t.steps, t.branches, 'L1', 'now', now);
+    expect(r.steps.filter((s) => s.track === 'L2').map((s) => s.at)).toEqual(before);
+    expect(Math.min(...r.steps.filter((s) => s.track === 'L1' && s.kind === 'preheat').map((s) => s.at))).toBe(now + 15 * 60_000);
+    const back = setWhere(r.steps, r.branches, 'L1', 'plan', now);
+    expect(back.steps.filter((s) => s.track === 'L1').map((s) => s.at)).toEqual(t.steps.filter((s) => s.track === 'L1').map((s) => s.at));
+  });
+  it('changing a loaf weight recomputes the rolls; add and remove pieces', () => {
+    const w = setWeight(t.steps, t.branches, 'L1', 800, p.dough.totalDough);
+    expect(w.branches.find((b) => b.id === 'rolls')!.weight).toBeGreaterThan(t.branches.find((b) => b.id === 'rolls')!.weight);
+    const a = addLoaf(t.steps, t.branches, p.dough.totalDough);
+    expect(a.branches.filter((b) => b.kind === 'loaf')).toHaveLength(3);
+    const r = removeBranch(a.steps, a.branches, 'L3', p.dough.totalDough);
+    expect(r.branches.filter((b) => b.kind === 'loaf')).toHaveLength(2);
+    expect(r.steps.some((s) => s.track === 'L3')).toBe(false);
+  });
+  it('a custom step can be added anywhere and removed', () => {
+    const s = addCustom(t.steps, { title: 'לבדוק את הבצק', at: Date.now(), track: 'L1' });
+    expect(s.some((x) => x.kind === 'custom' && x.track === 'L1')).toBe(true);
+  });
+});

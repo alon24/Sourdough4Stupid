@@ -48,7 +48,7 @@ test('planning a bake creates steps and survives reload', async ({ page }) => {
   await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
   await expect(page.getByRole('heading', { name: 'התוכנית שלך' })).toBeVisible();
   await expect(page.getByRole('button', { name: /להאכיל סטארטר/ })).toBeVisible();
-  await expect(page.getByRole('button', { name: /לאפות: 240°/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /לאפות: 240°/ }).first()).toBeVisible();
   await page.reload();
   await expect(page.getByRole('button', { name: /להאכיל סטארטר/ })).toBeVisible();
 });
@@ -70,8 +70,8 @@ test('heavier tin loaf changes the bake steps', async ({ page }) => {
   await page.getByLabel('משקל לחם').selectOption('1200');
   await page.getByLabel('צורת לחם').selectOption('tin');
   await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
-  await expect(page.getByRole('button', { name: /לחלץ מהתבנית/ })).toBeVisible();
-  await expect(page.getByRole('button', { name: /לאפות: 230° מכוסה, 30 דק'/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /לחלץ מהתבנית/ }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: /לאפות: 230° מכוסה, 30 דק'/ }).first()).toBeVisible();
 });
 
 test('no horizontal scroll on a phone', async ({ page }) => {
@@ -139,7 +139,7 @@ test('alarm changes reach the native alarm clock', async ({ page }) => {
   const count = () => page.evaluate(() => (window as any).__ops.length);
   expect(await count()).toBeGreaterThan(5);
   await page.evaluate(() => ((window as any).__ops.length = 0));
-  await page.getByRole('button', { name: /לאפות: 240°/ }).click();
+  await page.getByRole('button', { name: /לאפות: 240°/ }).first().click();
   await page.getByLabel('שעון מעורר לשלב הזה').click();
   const ops = await page.evaluate(() => (window as any).__ops);
   expect(ops).toHaveLength(1);
@@ -561,4 +561,30 @@ test('the service worker registers and the app keeps working after a reload unde
   await page.reload();
   await page.locator('nav.tabs').getByText('תוכנית', { exact: true }).tap();
   await expect(page).toHaveURL(/#\/plan$/);
+});
+
+test('the split announces itself and each loaf and the rolls are separate branches', async ({ page }) => {
+  await page.goto('/#/new');
+  await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
+  await expect(page.getByTestId('split')).toContainText('כאן האפייה מתפצלת');
+  const tracks = page.getByTestId('track');
+  expect(await tracks.count()).toBeGreaterThanOrEqual(2);
+  // loaf 1 goes to bake now: only that branch moves, a note is kept
+  const second = await tracks.nth(1).innerText();
+  await page.getByRole('button', { name: 'ניהול כיכר 1' }).click();
+  await page.getByLabel('הערה למסלול הזה').fill('שם במקרר ואופה מחר');
+  await page.getByRole('button', { name: 'לאפות עכשיו' }).click();
+  await page.getByRole('button', { name: 'סגור' }).first().click({ position: { x: 5, y: 5 } });
+  await expect(tracks.first()).toContainText('נאפה עכשיו');
+  await expect(tracks.first()).toContainText('שם במקרר ואופה מחר');
+  expect(await tracks.nth(1).innerText()).toBe(second);
+  // a free step
+  await page.getByRole('button', { name: /שלב או הערה חופשיים/ }).click();
+  await page.getByLabel('מה?').fill('לבדוק את הכיכר');
+  await page.getByRole('button', { name: 'הוסף' }).click();
+  await expect(page.getByRole('button', { name: /לבדוק את הכיכר/ })).toBeVisible();
+  // weight change offers to derive a recipe only when from a recipe; the rolls adapt
+  await page.getByRole('button', { name: 'ניהול כיכר 2' }).click();
+  await page.getByRole('button', { name: 'פחות משקל' }).click();
+  await expect(page.getByTestId('split')).toContainText('850');
 });

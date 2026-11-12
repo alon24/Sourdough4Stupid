@@ -846,3 +846,11 @@ Settings  { defaults, telegramLinked, quietHours, units }
 15. **הגדרת תנור במתכון:** סיר, אבן או תבנית. הבחירה משנה את זמני האפייה וההוראות (חלק מ־4.12.1, ובהמשך גם הפיצה).
 
 אופציונלי לשיקול בעיצוב: (2) מדף צנצנות לסטארטרים מרובים, (6) גרירת היעד על ציר הזמן.
+
+## 4.17 Branches after the split (5.1 / 4.14 update)
+
+- At the divide step the plan shows a "here the bake splits" card with the exact split.
+- After it, every loaf and the rolls are separate branches (tracks) with their own steps and alarms.
+- Per branch: where it is (as planned, fridge, proofing on the counter, bake now), weight (loaf) or count (rolls), a note, alarms on or off, add or remove a loaf. Only that branch is re-timed; changing a weight recomputes the rolls.
+- A free step or note can be added anywhere, and every step can carry a personal note. Notes go to the bake journal; changing pieces offers "derive a new recipe".
+- Plan list is layout-stable: no forced scrolling, a "jump to current step" button appears when the current step is off screen.

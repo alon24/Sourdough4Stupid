@@ -1,5 +1,6 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import {
+  addCustom, addLoaf, branchSummary, removeBranch, removeStep, setRollCount, setTrackAlarms, setUserNote, setWeight, setWhere, type Branch, type Where,
   addFold, removeFold, setAutolyse, bulkState, complete, doughTempAdvice, FRICTION, resumeAt, retimeBulk, roomTempTip, setAlarm, shift, TARGET_DOUGH_C,
   waterTemp, type Reading, type Step,
 } from '../../../core/src/index';
@@ -12,6 +13,18 @@ export function PlanScreen() {
   const [cascade, setCascade] = useState(true);
   const [doneAtInput, setDoneAtInput] = useState('');
   const [derive, setDerive] = useState<boolean | null>(null);
+  const [deriveP, setDeriveP] = useState(false);
+  const [branchOpen, setBranchOpen] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const nextRef = useRef<HTMLElement | null>(null);
+  const [far, setFar] = useState(false);
+  useEffect(() => {
+    const el = nextRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') { setFar(false); return; }
+    const io = new IntersectionObserver(([e]) => setFar(!e!.isIntersecting));
+    io.observe(el);
+    return () => io.disconnect();
+  });
 
   if (!plan) {
     return (
@@ -44,7 +57,29 @@ export function PlanScreen() {
     if (base) setState({ recipes: [...st.recipes, { ...base, id: `r${Date.now()}`, name: `${base.name} (${derive ? 'עם' : 'בלי'} אוטוליזה)`, fav: false, derivedFrom: base.id, autolyse: !!derive }] });
     setDerive(null);
   };
-  const finish = () => setState({ plan: null, history: [{ title: plan.title, finishedAt: Date.now() }, ...history] });
+  const branches = plan.branches ?? [];
+  const total = plan.total ?? 0;
+  const applyB = (r: { steps: Step[]; branches: Branch[] }, pieces = false) => {
+    setState({ plan: { ...getState().plan!, steps: r.steps, branches: r.branches, undo: steps } });
+    if (pieces && plan.recipeId) setDeriveP(true);
+  };
+  const sheetB = branches.find((b) => b.id === branchOpen);
+  const finish = () => {
+    const notes = [
+      ...branches.filter((b) => b.note).map((b) => `${b.label}: ${b.note}`),
+      ...steps.filter((s) => s.userNote).map((s) => `${s.title}: ${s.userNote}`),
+      ...steps.filter((s) => s.kind === 'custom').map((s) => `${s.title}${s.note ? `: ${s.note}` : ''}`),
+    ];
+    setState({ plan: null, history: [{ title: plan.title, finishedAt: Date.now(), ...(notes.length ? { notes } : {}) }, ...history] });
+  };
+  const deriveFromPieces = () => {
+    const st = getState();
+    const base = st.recipes.find((r) => r.id === plan.recipeId);
+    const lo = branches.filter((b) => b.kind === 'loaf');
+    const ro = branches.find((b) => b.kind === 'rolls');
+    if (base) setState({ recipes: [...st.recipes, { ...base, id: `r${Date.now()}`, name: `${base.name} (גרסה)`, fav: false, derivedFrom: base.id, loaves: lo.length, rolls: ro?.count ?? 0, weight: Math.round(lo[0]?.weight ?? base.weight) }] });
+    setDeriveP(false);
+  };
   const askNotify = () => 'Notification' in window && Notification.requestPermission();
 
   let prevDay = '';
@@ -101,17 +136,22 @@ export function PlanScreen() {
         </section>
       )}
 
-      {plan.split && plan.input && plan.input.loaves > 0 && plan.input.rolls > 0 && (
-        <section class="card sun" aria-label="החלוקה" data-testid="split">
-          <span class="sub">החלוקה בסוף ההתפחה{steps.find((s) => s.kind === 'divide') ? ` · ${hhmm(steps.find((s) => s.kind === 'divide')!.at)}` : ''}</span>
-          <strong>{plan.split}</strong>
-        </section>
-      )}
-
       {plan.bulk && <TempCard />}
 
+      {far && next && (
+        <button class="btn small jump" onClick={() => nextRef.current?.scrollIntoView({ block: 'center' })}>לשלב הנוכחי</button>
+      )}
+      {deriveP && (
+        <section class="card" role="alert">
+          <strong>שינית את החלוקה. לשמור כמתכון חדש?</strong>
+          <div class="grid2">
+            <button class="btn primary small" onClick={deriveFromPieces}>כן, מתכון חדש</button>
+            <button class="btn small" onClick={() => setDeriveP(false)}>לא, רק הפעם</button>
+          </div>
+        </section>
+      )}
       <div class="steps">
-        {steps.map((s) => {
+        {steps.filter((s) => !s.track).map((s) => {
           const day = dayName(s.at);
           const header = day !== prevDay;
           prevDay = day;
@@ -119,19 +159,35 @@ export function PlanScreen() {
           return (
             <>
               {header && <span class="sub day">{day}</span>}
-              <button class={`step ${cls}`} onClick={() => setOpen(s.id)} aria-label={`${s.title}, ${hhmm(s.at)}`}>
-                <span class="t num">{hhmm(s.at)}</span>
-                <span class="dot" aria-hidden="true"></span>
-                <span>
-                  <span class="title">{s.title}{s.alarm && s.doneAt === undefined ? ' ⏰' : ''}</span>
-                  {s.id === next?.id && <span class="note">{until(s.at)}</span>}
-                  {s.note && s.doneAt === undefined && <span class="note">{s.note}</span>}
-                </span>
-              </button>
+              <StepRow s={s} cls={cls} isNext={s.id === next?.id} onOpen={() => setOpen(s.id)} refEl={s.id === next?.id ? nextRef : undefined} />
+              {s.kind === 'divide' && branches.length > 0 && (
+                <section class="card sun split" aria-label="החלוקה" data-testid="split">
+                  <span class="sub">✂️ כאן האפייה מתפצלת · {hhmm(s.at)}</span>
+                  <strong class="big">{branchSummary(branches)}</strong>
+                  <span class="muted">מכאן כל כיכר והלחמניות הן מסלול משלו: הערות, מקרר או אפייה עכשיו, משקל והתראות.</span>
+                </section>
+              )}
+              {s.kind === 'divide' && branches.map((br) => {
+                const ts = steps.filter((x) => x.track === br.id);
+                const where = { plan: 'לפי התוכנית', fridge: 'במקרר', room: 'מתפיח בחוץ', now: 'נאפה עכשיו' }[br.where];
+                return (
+                  <section class="track" data-testid="track" aria-label={br.label}>
+                    <div class="row">
+                      <strong>{br.kind === 'rolls' ? '🥖' : '🍞'} {br.label} <span class="muted">· <span class="num">{br.count > 1 ? `${br.count} × ` : ''}{Math.round(br.weight)}</span> ג' · {where}</span></strong>
+                      <button class="btn small" onClick={() => setBranchOpen(br.id)} aria-label={`ניהול ${br.label}`}>ניהול</button>
+                    </div>
+                    {br.note && <span class="note-user">📝 {br.note}</span>}
+                    {ts.map((x) => (
+                      <StepRow s={x} cls={x.doneAt !== undefined ? 'done' : x.id === next?.id ? 'next' : ''} isNext={x.id === next?.id} onOpen={() => setOpen(x.id)} refEl={x.id === next?.id ? nextRef : undefined} showDay />
+                    ))}
+                  </section>
+                );
+              })}
             </>
           );
         })}
       </div>
+      <button class="btn small" onClick={() => setAdding(true)}>+ שלב או הערה חופשיים</button>
 
       <div class="grid2">
         <button class="btn small" onClick={askNotify}>הפעל התראות</button>
@@ -147,6 +203,11 @@ export function PlanScreen() {
               <span class="big num">{hhmm(sel.at)}</span>
             </div>
             {sel.note && <span class="muted">{sel.note}</span>}
+            <label class="field">
+              ההערה שלי
+              <textarea rows={2} value={sel.userNote ?? ''} onInput={(e) => setState({ plan: { ...getState().plan!, steps: setUserNote(getState().plan!.steps, sel.id, e.currentTarget.value) } })}></textarea>
+            </label>
+            {sel.kind === 'custom' && <button class="btn small" onClick={() => update(removeStep(steps, sel.id))}>מחק שלב זה</button>}
             {sel.kind === 'fold' && sel.doneAt === undefined && (
               <div class="grid2">
                 <button class="btn small" onClick={() => update(addFold(steps, plan.input?.foldGapMin ?? 30))}>הוסף קיפול</button>
@@ -202,7 +263,111 @@ export function PlanScreen() {
           </div>
         </>
       )}
+      {sheetB && (
+        <>
+          <button class="scrim" aria-label="סגור" onClick={() => setBranchOpen(null)}></button>
+          <div class="sheet" role="dialog" aria-label={`ניהול ${sheetB.label}`}>
+            <div class="row">
+              <strong class="big">{sheetB.label}</strong>
+              <button class="btn small" onClick={() => setBranchOpen(null)}>סגור</button>
+            </div>
+            <span class="sub">איפה זה עכשיו?</span>
+            <div class="grid2">
+              {([['plan', 'לפי התוכנית'], ['fridge', 'למקרר'], ['room', 'מתפיח בחוץ'], ['now', 'לאפות עכשיו']] as [Where, string][]).map(([w, label]) => (
+                <button class={`btn small ${sheetB.where === w ? 'primary' : ''}`} aria-pressed={sheetB.where === w} onClick={() => applyB(setWhere(steps, branches, sheetB.id, w, Date.now(), getState().roomTempC))}>{label}</button>
+              ))}
+            </div>
+            {sheetB.kind === 'loaf' ? (
+              <div class="row">
+                <span>משקל כיכר</span>
+                <span class="stepper">
+                  <button aria-label="פחות משקל" onClick={() => applyB(setWeight(steps, branches, sheetB.id, Math.max(100, sheetB.weight - 50), total), true)}>−</button>
+                  <b class="num">{Math.round(sheetB.weight)}</b> ג'
+                  <button class="plus" aria-label="יותר משקל" onClick={() => applyB(setWeight(steps, branches, sheetB.id, sheetB.weight + 50, total), true)}>+</button>
+                </span>
+              </div>
+            ) : (
+              <div class="row">
+                <span>כמה לחמניות ({Math.round(sheetB.weight)} ג' כל אחת)</span>
+                <span class="stepper">
+                  <button aria-label="פחות לחמניות" onClick={() => applyB(setRollCount(steps, branches, sheetB.count - 1, total), true)}>−</button>
+                  <b class="num">{sheetB.count}</b>
+                  <button class="plus" aria-label="יותר לחמניות" onClick={() => applyB(setRollCount(steps, branches, sheetB.count + 1, total), true)}>+</button>
+                </span>
+              </div>
+            )}
+            <label class="field">
+              הערה למסלול הזה
+              <textarea rows={2} value={sheetB.note} onInput={(e) => setState({ plan: { ...getState().plan!, branches: getState().plan!.branches!.map((x) => (x.id === sheetB.id ? { ...x, note: e.currentTarget.value } : x)) } })}></textarea>
+            </label>
+            <label class="row" style="justify-content:flex-start;min-height:48px">
+              <input type="checkbox" checked={steps.filter((x) => x.track === sheetB.id && x.doneAt === undefined).some((x) => x.alarm)} onChange={(e) => update(setTrackAlarms(steps, sheetB.id, e.currentTarget.checked))} style="width:24px;height:24px" />
+              שעוני מעורר לשלבי המסלול
+            </label>
+            <div class="grid2">
+              <button class="btn small" onClick={() => { setAdding(true); }}>+ שלב למסלול</button>
+              {sheetB.kind === 'loaf' ? (
+                <button class="btn small" onClick={() => { applyB(removeBranch(steps, branches, sheetB.id, total), true); setBranchOpen(null); }}>הסר כיכר</button>
+              ) : <span></span>}
+            </div>
+            {sheetB.kind === 'loaf' && <button class="btn small" onClick={() => applyB(addLoaf(steps, branches, total), true)}>+ עוד כיכר</button>}
+          </div>
+        </>
+      )}
+
+      {adding && <AddStep branches={branches} track={branchOpen ?? ''} onClose={() => setAdding(false)} onAdd={(c) => { update(addCustom(steps, c)); setAdding(false); }} />}
     </main>
+  );
+}
+
+function StepRow({ s, cls, isNext, onOpen, refEl, showDay }: { s: Step; cls: string; isNext: boolean; onOpen: () => void; refEl?: { current: HTMLElement | null }; showDay?: boolean }) {
+  return (
+    <button class={`step ${cls}`} onClick={onOpen} aria-label={`${s.title}, ${hhmm(s.at)}`} ref={(el) => { if (refEl) refEl.current = el; }}>
+      <span class="t num">{hhmm(s.at)}{showDay ? <small class="d">{dayName(s.at)}</small> : null}</span>
+      <span class="dot" aria-hidden="true"></span>
+      <span>
+        <span class="title">{s.title}{s.alarm && s.doneAt === undefined ? ' ⏰' : ''}</span>
+        {isNext && <span class="note">{until(s.at)}</span>}
+        {s.note && s.doneAt === undefined && <span class="note">{s.note}</span>}
+        {s.userNote && <span class="note note-user">📝 {s.userNote}</span>}
+      </span>
+    </button>
+  );
+}
+
+function AddStep({ branches, track, onClose, onAdd }: { branches: Branch[]; track: string; onClose: () => void; onAdd: (c: { title: string; at: number; note?: string; track?: string; alarm?: boolean }) => void }) {
+  const [title, setTitle] = useState('');
+  const [time, setTime] = useState(toLocalInput(Date.now() + 15 * 60_000).slice(11, 16));
+  const [tr, setTr] = useState(track);
+  const [alarm, setAlarmOn] = useState(false);
+  const go = () => {
+    if (!title.trim()) return;
+    const [h, m] = time.split(':').map(Number);
+    const d = new Date(); d.setHours(h ?? 0, m ?? 0, 0, 0);
+    if (d.getTime() < Date.now() - 12 * 3_600_000) d.setDate(d.getDate() + 1);
+    onAdd({ title: title.trim(), at: d.getTime(), track: tr || undefined, alarm });
+  };
+  return (
+    <>
+      <button class="scrim" aria-label="סגור" onClick={onClose}></button>
+      <div class="sheet" role="dialog" aria-label="שלב או הערה חדשים">
+        <strong class="big">שלב או הערה חדשים</strong>
+        <label class="field">מה? <input value={title} onInput={(e) => setTitle(e.currentTarget.value)} placeholder="למשל: לבדוק את הכיכר במקרר" /></label>
+        <label class="field">מתי? <input type="time" value={time} onInput={(e) => setTime(e.currentTarget.value)} /></label>
+        <label class="field">
+          למסלול
+          <select value={tr} onChange={(e) => setTr(e.currentTarget.value)}>
+            <option value="">כללי</option>
+            {branches.map((b) => <option value={b.id}>{b.label}</option>)}
+          </select>
+        </label>
+        <label class="row" style="justify-content:flex-start;min-height:48px">
+          <input type="checkbox" checked={alarm} onChange={(e) => setAlarmOn(e.currentTarget.checked)} style="width:24px;height:24px" />
+          שעון מעורר
+        </label>
+        <button class="btn primary" onClick={go}>הוסף</button>
+      </div>
+    </>
   );
 }
 
