@@ -16,7 +16,7 @@ export const mixToBlend = (all: MixItem[]): BlendShare[] => {
     : [{ id: 'white', pct: 1 }];
 };
 
-export function FlourMix({ items, onChange }: { items: MixItem[]; onChange: (items: MixItem[]) => void }) {
+export function FlourMix({ items, onChange, onSaved }: { items: MixItem[]; onChange: (items: MixItem[]) => void; onSaved?: (id: string) => void }) {
   const st = useStore();
   const [name, setName] = useState('');
   const [newFlour, setNewFlour] = useState('');
@@ -32,8 +32,10 @@ export function FlourMix({ items, onChange }: { items: MixItem[]; onChange: (ite
   const savePreset = () => {
     const n = name.trim();
     if (!n) return;
-    setState({ flourPresets: [...st.flourPresets, { id: String(Date.now()), name: n, items }] });
+    const id = String(Date.now());
+    setState({ flourPresets: [...st.flourPresets, { id, name: n, items }] });
     setName('');
+    onSaved?.(id);
   };
 
   return (
