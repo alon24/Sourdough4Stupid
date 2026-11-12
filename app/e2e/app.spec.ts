@@ -152,6 +152,13 @@ test('alarm changes reach the native alarm clock', async ({ page }) => {
   expect(moved.every((o: any) => o.op === 'set')).toBe(true);
 });
 
+test('help page renders the guide and anchors scroll', async ({ page }) => {
+  await page.getByRole('link', { name: 'עזרה ומדריך' }).click();
+  await expect(page.getByRole('heading', { name: 'מדריך עזרה: מחמצת לעד' })).toBeVisible();
+  await page.locator('a[data-anchor]').first().click();
+  await expect(page).toHaveURL(/#\/help$/);
+});
+
 test('starting from starter: 300 g wanted, 30 g in the fridge', async ({ page }) => {
   await page.goto('/#/new');
   await page.getByRole('button', { name: 'מכמה סטארטר' }).click();

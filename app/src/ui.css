@@ -70,3 +70,17 @@ table.amounts { width: 100%; border-collapse: collapse; }
 table.amounts td { padding: 6px 0; border-bottom: 2px solid var(--ground); }
 table.amounts td:last-child { text-align: end; font-weight: 800; }
 @media (prefers-reduced-motion: reduce) { .btn:active { transform: none; } }
+
+/* help page */
+.help article{background:#fff;border-radius:28px;padding:8px 20px 20px;line-height:1.7;overflow-wrap:anywhere}
+.help h1{font-size:28px;font-weight:800;margin:16px 0 8px}
+.help h2{font-size:22px;font-weight:800;margin:26px 0 6px;scroll-margin-top:12px}
+.help h3{font-size:18px;font-weight:700;margin:18px 0 4px}
+.help .back{display:inline-block;margin:0 0 10px;font-weight:700;color:inherit;text-decoration:none}
+.help a{color:#2B1D3A;text-decoration:underline}
+.help code{background:#FFF6E5;border-radius:6px;padding:0 5px}
+.help blockquote{margin:12px 0;background:#FFF6E5;border-radius:16px;padding:8px 14px}
+.help hr{border:0;border-top:2px solid #FFF6E5;margin:18px 0}
+.help .tbl{overflow-x:auto}
+.help table{border-collapse:collapse;width:100%}
+.help th,.help td{border-bottom:2px solid #FFF6E5;padding:6px 8px;text-align:start;vertical-align:top}
