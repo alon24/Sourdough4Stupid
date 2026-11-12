@@ -255,6 +255,38 @@ test('an overdue step shows a reminder that snoozes the plan', async ({ page }) 
   await expect(alert).toHaveCount(0);
 });
 
+test('my own flour mix: grams and percent stay in sync, can be saved, remembered and deleted', async ({ page }) => {
+  await page.goto('/#/new');
+  await page.getByRole('button', { name: 'הרכב קמחים משלי' }).click();
+  await expect(page.getByTestId('mix-total')).toHaveText('1000');
+  await page.getByRole('button', { name: '+ הוסף קמח' }).click();
+  await page.getByRole('combobox', { name: 'סוג קמח' }).nth(1).selectOption('whole');
+  await page.getByLabel('גרמים').nth(0).fill('700');
+  await page.getByLabel('גרמים').nth(1).fill('300');
+  await expect(page.getByLabel('אחוז').nth(1)).toHaveValue('30');
+  await page.getByLabel('אחוז').nth(1).fill('50');
+  await expect(page.getByLabel('גרמים').nth(1)).toHaveValue('500');
+  await page.getByLabel('שם לתמהיל').fill('חצי חצי');
+  await page.getByRole('button', { name: 'שמור תמהיל' }).click();
+  await page.reload();
+  await page.getByRole('button', { name: 'הרכב קמחים משלי' }).click();
+  await expect(page.getByRole('button', { name: 'חצי חצי', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'מחק את חצי חצי' }).click();
+  await expect(page.getByRole('button', { name: 'חצי חצי', exact: true })).toHaveCount(0);
+});
+
+test('a custom flour is remembered, usable in the mix and deletable', async ({ page }) => {
+  await page.goto('/#/new');
+  await page.getByRole('button', { name: 'הרכב קמחים משלי' }).click();
+  await page.getByText('קמח משלי').click();
+  await page.getByLabel('שם קמח חדש').fill('דורום');
+  await page.getByLabel('ספיגת מים').fill('8');
+  await page.getByRole('button', { name: 'הוסף', exact: true }).click();
+  await expect(page.getByRole('combobox', { name: 'סוג קמח' }).first().locator('option', { hasText: 'דורום' })).toHaveCount(1);
+  await page.getByRole('button', { name: 'מחק את דורום' }).click();
+  await expect(page.getByRole('combobox', { name: 'סוג קמח' }).first().locator('option', { hasText: 'דורום' })).toHaveCount(0);
+});
+
 test('download page has the APK link and a QR code', async ({ page }) => {
   await page.getByRole('link', { name: 'הורדת אפליקציית אנדרואיד' }).click();
   await expect(page.getByRole('link', { name: /הורדת האפליקציה/ })).toHaveAttribute('href', /machmetzet\.apk$/);

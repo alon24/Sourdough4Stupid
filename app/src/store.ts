@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { alarmOps, type AlarmOp, type Reading, type Step, type StarterType } from '../../core/src/index';
+import { alarmOps, registerFlours, type FlourInfo, type AlarmOp, type Reading, type Step, type StarterType } from '../../core/src/index';
 
 /** Provided by the Android wrapper (real alarm clock). Absent in the browser. */
 declare global {
@@ -31,7 +31,15 @@ export interface ActivePlan {
   readings?: Reading[];
 }
 
+export interface FlourPreset {
+  id: string;
+  name: string;
+  items: { flour: string; grams: number }[];
+}
+
 export interface State {
+  flourPresets: FlourPreset[];
+  customFlours: FlourInfo[];
   starter: Starter;
   plan: ActivePlan | null;
   roomTempC: number;
@@ -42,6 +50,8 @@ const KEY = 'machmetzet.v1';
 const DAY = 86_400_000;
 
 const initial = (): State => ({
+  flourPresets: [],
+  customFlours: [],
   starter: { name: 'הסטארטר הקשה שלי', type: 'stiff', hydration: 0.5, lastFedAt: Date.now() - 9 * DAY, inFridge: true },
   plan: null,
   roomTempC: 24,
@@ -59,11 +69,13 @@ function load(): State {
 }
 
 let state = load();
+registerFlours(state.customFlours);
 const listeners = new Set<() => void>();
 
 export function setState(patch: Partial<State>): void {
   const before = state.plan?.steps ?? [];
   state = { ...state, ...patch };
+  if (patch.customFlours) registerFlours(state.customFlours);
   const after = state.plan?.steps ?? [];
   if (before !== after) {
     const ops = alarmOps(before, after);

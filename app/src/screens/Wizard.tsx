@@ -3,6 +3,7 @@ import {
   buildChain, hydrationAdvice, plan, suggestHydration, yieldOptions,
   type BlendShare, type LoafShape,
 } from '../../../core/src/index';
+import { FlourMix, mixToBlend, type MixItem } from './FlourMix';
 import { toLocalInput } from '../format';
 import { daysSinceFed, setState, useStore } from '../store';
 
@@ -40,13 +41,23 @@ export function Wizard() {
   const [cold, setCold] = useState(true);
   const [blendIdx, setBlendIdx] = useState(0);
   const [hydration, setHydration] = useState(0.72);
-  const blend = BLENDS[blendIdx]!.blend;
+  const [mix, setMix] = useState<MixItem[] | null>(null);
+  const blend = mix ? mixToBlend(mix) : BLENDS[blendIdx]!.blend;
   const advice = hydrationAdvice(blend, hydration);
-  const pickBlend = (i: number) => {
-    setBlendIdx(i);
-    // follow the suggestion only while the hydration is still the comfortable one for the old blend
-    if (hydrationAdvice(BLENDS[blendIdx]!.blend, hydration).level === 'ok') setHydration(suggestHydration(BLENDS[i]!.blend));
+  // follow the suggestion only while the hydration is still the comfortable one for the old blend
+  const follow = (next: BlendShare[]) => {
+    if (hydrationAdvice(blend, hydration).level === 'ok') setHydration(suggestHydration(next));
   };
+  const pickBlend = (i: number) => {
+    follow(BLENDS[i]!.blend);
+    setBlendIdx(i);
+    setMix(null);
+  };
+  const changeMix = (items: MixItem[]) => {
+    follow(mixToBlend(items));
+    setMix(items);
+  };
+  const startMix = () => changeMix(blend.map((b) => ({ flour: b.id, grams: Math.round(b.pct * 1000) })));
 
   const [mode, setMode] = useState<'pieces' | 'starter'>('pieces');
   const [want, setWant] = useState(300);
@@ -199,6 +210,11 @@ export function Wizard() {
           ))}
         </select>
       </label>
+      {mix ? (
+        <FlourMix items={mix} onChange={changeMix} />
+      ) : (
+        <button class="btn small" onClick={startMix}>הרכב קמחים משלי</button>
+      )}
       <section class="card" aria-label="הידרציה">
         <div class="row">
           <strong>הידרציה</strong>

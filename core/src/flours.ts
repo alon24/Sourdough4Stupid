@@ -21,8 +21,15 @@ export interface BlendShare {
   pct: number;
 }
 
+let custom: FlourInfo[] = [];
+/** The user's own flours (replaces the previous custom list). */
+export const registerFlours = (list: FlourInfo[]): void => {
+  custom = list;
+};
+export const allFlours = (): FlourInfo[] => [...FLOURS, ...custom];
+
 const find = (id: string): FlourInfo => {
-  const f = FLOURS.find((x) => x.id === id);
+  const f = allFlours().find((x) => x.id === id);
   if (!f) throw new RangeError(`unknown flour ${id}`);
   return f;
 };
