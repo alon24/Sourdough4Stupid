@@ -39,7 +39,43 @@ export interface FlourPreset {
   items: { flour: string; grams: number }[];
 }
 
+export interface InclusionDef {
+  id: string;
+  name: string;
+  /** fraction of total flour */
+  pct: number;
+  /** dried fruit that should be soaked first */
+  soak: boolean;
+}
+
+/** Everything about a bake except when and what the starter is doing: a reusable template. */
+export interface Recipe {
+  id: string;
+  name: string;
+  fav: boolean;
+  /** the recipe this one was derived from */
+  derivedFrom?: string;
+  loaves: number;
+  rolls: number;
+  weight: number;
+  shape: 'free' | 'tin';
+  inclusions: string[];
+  kneading: 'hand' | 'machine';
+  cold: boolean;
+  hydration: number;
+  /** flour mix as grams per flour */
+  mix: { flour: string; grams: number }[];
+}
+
+export const DEFAULT_INCLUSIONS: InclusionDef[] = [
+  { id: 'olives', name: 'זיתים', pct: 0.18, soak: false },
+  { id: 'cranberries', name: 'חמוציות', pct: 0.18, soak: true },
+  { id: 'raisins', name: 'צימוקים', pct: 0.18, soak: true },
+];
+
 export interface State {
+  inclusions: InclusionDef[];
+  recipes: Recipe[];
   flourPresets: FlourPreset[];
   customFlours: FlourInfo[];
   starter: Starter;
@@ -52,6 +88,8 @@ const KEY = 'machmetzet.v1';
 const DAY = 86_400_000;
 
 const initial = (): State => ({
+  inclusions: DEFAULT_INCLUSIONS,
+  recipes: [],
   flourPresets: [],
   customFlours: [],
   starter: { name: 'הסטארטר הקשה שלי', type: 'stiff', hydration: 0.5, lastFedAt: Date.now() - 9 * DAY, inFridge: true },

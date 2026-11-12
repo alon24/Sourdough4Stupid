@@ -299,7 +299,7 @@ test('start questionnaire: starter state, scale-up, and the step you are at', as
   expect(await stepButtons.count()).toBeGreaterThan(4);
   await stepButtons.nth(3).click();
   await expect(page).toHaveURL(/#\/plan$/);
-  expect(await page.locator('.step.done').count()).toBeGreaterThanOrEqual(2);
+  await expect.poll(() => page.locator('.step.done').count()).toBeGreaterThanOrEqual(2);
 });
 
 test('start questionnaire: an active starter means no feeding steps', async ({ page }) => {
@@ -310,4 +310,32 @@ test('start questionnaire: an active starter means no feeding steps', async ({ p
   await expect(page.getByRole('button', { name: /להאכיל סטארטר/ })).toHaveCount(0);
   await page.getByRole('button', { name: /עוד לא התחלתי/ }).click();
   await expect(page.getByRole('button', { name: /להאכיל סטארטר/ })).toHaveCount(0);
+});
+
+test('recipes: create with a managed inclusion, bake from it, and derive a new recipe on change', async ({ page }) => {
+  await page.goto('/#/recipes');
+  await page.getByRole('link', { name: 'מתכון חדש' }).click();
+  await page.getByLabel('שם המתכון').fill('הלחם של שבת');
+  await page.getByText('ניהול תוספות').click();
+  await page.getByLabel('שם תוספת חדשה').fill('אגוזים');
+  await page.getByLabel('כמות לתוספת חדשה').fill('20');
+  await page.getByRole('button', { name: 'הוסף', exact: true }).click();
+  await page.getByRole('button', { name: 'אגוזים', exact: true }).click();
+  await page.getByRole('button', { name: 'שמור מתכון' }).click();
+  await expect(page.getByTestId('recipe')).toHaveCount(1);
+  await page.reload();
+  await expect(page.getByText('הלחם של שבת')).toBeVisible();
+  await page.getByRole('link', { name: 'אפייה חדשה' }).first().click();
+  await expect(page.getByRole('button', { name: 'אגוזים', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click(); // unchanged: straight to the plan
+  await expect(page.getByRole('heading', { name: 'התוכנית שלך' })).toBeVisible();
+  await page.getByRole('link', { name: 'מתכונים' }).click();
+  await page.getByRole('link', { name: 'אפייה חדשה' }).first().click();
+  await page.getByRole('button', { name: 'עוד לחם' }).click();
+  await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
+  await page.getByRole('button', { name: 'כן, מתכון חדש' }).click();
+  await page.getByRole('link', { name: 'מתכונים' }).click();
+  await expect(page.getByTestId('recipe')).toHaveCount(2);
+  await page.getByRole('button', { name: /מחק את הלחם של שבת \(גרסה\)/ }).click();
+  await expect(page.getByTestId('recipe')).toHaveCount(1);
 });

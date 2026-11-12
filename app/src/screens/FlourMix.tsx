@@ -50,7 +50,7 @@ export function FlourMix({ items, onChange }: { items: MixItem[]; onChange: (ite
         </div>
       )}
       {items.map((it, k) => (
-        <div class="row" data-testid="mix-row">
+        <div class="row" data-testid="mix-row" style="flex-wrap:wrap;gap:6px">
           <select aria-label="סוג קמח" value={it.flour} onChange={(e) => set(k, { flour: e.currentTarget.value })}>
             {flours.map((f) => <option value={f.id}>{f.name}</option>)}
           </select>
