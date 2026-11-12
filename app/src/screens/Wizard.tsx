@@ -27,7 +27,7 @@ function defaultTarget(): number {
 }
 
 export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; recipeId?: string }) {
-  const { starter, roomTempC, inclusions: INCLUSIONS, recipes } = useStore();
+  const { starter, roomTempC, inclusions: INCLUSIONS, recipes, flourPresets } = useStore();
   const isRecipe = kind === 'recipe';
   const initial = recipes.find((r) => r.id === recipeId);
   const [name, setName] = useState(initial?.name ?? '');
@@ -44,6 +44,8 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
   const [blendIdx, setBlendIdx] = useState(0);
   const [hydration, setHydration] = useState(initial?.hydration ?? 0.72);
   const [mix, setMix] = useState<MixItem[] | null>(initial?.mix ?? null);
+  const [presetId, setPresetId] = useState<string | null>(null);
+  const preset = flourPresets.find((p) => p.id === presetId);
   const blend = mix ? mixToBlend(mix) : BLENDS[blendIdx]!.blend;
   const advice = hydrationAdvice(blend, hydration);
   // follow the suggestion only while the hydration is still the comfortable one for the old blend
@@ -54,10 +56,21 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
     follow(BLENDS[i]!.blend);
     setBlendIdx(i);
     setMix(null);
+    setPresetId(null);
   };
   const changeMix = (items: MixItem[]) => {
     follow(mixToBlend(items));
     setMix(items);
+    setPresetId(null);
+  };
+  const pickFromDropdown = (v: string) => {
+    if (v.startsWith('p')) {
+      const p = flourPresets.find((x) => x.id === v.slice(1));
+      if (!p) return;
+      follow(mixToBlend(p.items));
+      setMix(p.items);
+      setPresetId(p.id);
+    } else if (v !== 'custom') pickBlend(+v);
   };
   const startMix = () => changeMix(blend.map((b) => ({ flour: b.id, grams: Math.round(b.pct * 1000) })));
 
@@ -237,14 +250,23 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
 
       <label class="field">
         קמח
-        <select value={blendIdx} onChange={(e) => pickBlend(+e.currentTarget.value)}>
+        <select value={presetId && preset ? `p${presetId}` : mix ? 'custom' : String(blendIdx)} onChange={(e) => pickFromDropdown(e.currentTarget.value)}>
           {BLENDS.map((b, i) => (
-            <option value={i}>{b.label}</option>
+            <option value={String(i)}>{b.label}</option>
           ))}
+          {flourPresets.map((p) => (
+            <option value={`p${p.id}`}>{p.name}</option>
+          ))}
+          {mix && !preset && <option value="custom">הרכב מותאם</option>}
         </select>
       </label>
+      {preset && (
+        <button class="btn small" aria-label={`מחק את התמהיל ${preset.name}`} onClick={() => { setState({ flourPresets: flourPresets.filter((p) => p.id !== preset.id) }); pickBlend(0); }}>
+          מחק את התמהיל "{preset.name}"
+        </button>
+      )}
       {mix ? (
-        <FlourMix items={mix} onChange={changeMix} />
+        <FlourMix items={mix} onChange={changeMix} onSaved={setPresetId} />
       ) : (
         <button class="btn small" onClick={startMix}>הרכב קמחים משלי</button>
       )}

@@ -407,3 +407,20 @@ test('recipes export (JSON, CSV, HTML page) and import round-trip', async ({ pag
   await page.getByLabel('ייבוא מתכונים').setInputFiles('/tmp/bad.json');
   await expect(page.getByTestId('import-msg')).toContainText('לא נראה כמו קובץ מתכונים');
 });
+
+test('a named flour mix goes straight into the flour dropdown, is selected, and can be deleted there', async ({ page }) => {
+  await page.goto('/#/new');
+  const dd = page.locator('label.field', { hasText: /^קמח/ }).locator('select').first();
+  await page.getByRole('button', { name: 'הרכב קמחים משלי' }).click();
+  await page.getByLabel('שם לתמהיל').fill('הרכב הבית');
+  await page.getByRole('button', { name: 'שמור תמהיל' }).click();
+  await expect(dd.locator('option', { hasText: 'הרכב הבית' })).toHaveCount(1);
+  await expect(dd.locator('option:checked')).toHaveText('הרכב הבית');
+  await page.reload();
+  await expect(dd.locator('option', { hasText: 'הרכב הבית' })).toHaveCount(1);
+  await dd.selectOption({ label: 'לבן' });
+  await dd.selectOption({ label: 'הרכב הבית' });
+  await expect(page.getByTestId('mix-total')).toHaveText('1000');
+  await page.getByRole('button', { name: 'מחק את התמהיל הרכב הבית' }).click();
+  await expect(dd.locator('option', { hasText: 'הרכב הבית' })).toHaveCount(0);
+});
