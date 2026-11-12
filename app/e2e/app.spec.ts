@@ -424,3 +424,17 @@ test('a named flour mix goes straight into the flour dropdown, is selected, and 
   await page.getByRole('button', { name: 'מחק את התמהיל הרכב הבית' }).click();
   await expect(dd.locator('option', { hasText: 'הרכב הבית' })).toHaveCount(0);
 });
+
+test('apk link is a plain download link, the service worker leaves .apk alone, and install steps are shown', async ({ page, request }) => {
+  await page.goto('/#/app');
+  const link = page.getByTestId('apk-link');
+  await expect(link).toHaveAttribute('download', 'machmetzet.apk');
+  await expect(link).toHaveAttribute('href', /machmetzet\.apk$/);
+  await expect(page.getByTestId('qr').locator('svg path')).toHaveCount(1);
+  await expect(page.getByText('איך מתקינים')).toBeVisible();
+  await page.goto('/#/');
+  await page.getByRole('link', { name: 'הורדת אפליקציית אנדרואיד' }).click();
+  await expect(page.getByRole('heading', { name: 'האפליקציה לאנדרואיד' })).toBeVisible();
+  const sw = await (await request.get('/sw.js')).text();
+  expect(sw).toMatch(/denylist:\[\/\\\.apk\$\/\]/);
+});
