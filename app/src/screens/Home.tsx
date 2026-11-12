@@ -62,6 +62,7 @@ export function Home() {
         <a class="btn primary" href="#/new" style="display:flex;align-items:center;justify-content:center;text-decoration:none">אפייה חדשה</a>
         <a class="btn" href="#/calc" style="display:flex;align-items:center;justify-content:center;text-decoration:none;color:inherit">מחשבון סטארטר</a>
       </div>
+      <a href="#/help" style="text-align:center;color:inherit;font-weight:700">עזרה ומדריך</a>
     </main>
   );
 }

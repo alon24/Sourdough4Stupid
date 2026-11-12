@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import { Calc } from './screens/Calc';
+import { Help } from './screens/Help';
 import { Home } from './screens/Home';
 import { PlanScreen } from './screens/Plan';
 import { Wizard } from './screens/Wizard';
@@ -22,7 +23,7 @@ export function App() {
   }, []);
 
   const screen =
-    hash === '#/plan' ? <PlanScreen /> : hash === '#/new' ? <Wizard /> : hash === '#/calc' ? <Calc /> : <Home />;
+    hash === '#/plan' ? <PlanScreen /> : hash === '#/new' ? <Wizard /> : hash === '#/calc' ? <Calc /> : hash === '#/help' ? <Help /> : <Home />;
 
   return (
     <>

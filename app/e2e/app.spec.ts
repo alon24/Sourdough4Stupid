@@ -151,3 +151,10 @@ test('alarm changes reach the native alarm clock', async ({ page }) => {
   expect(moved.length).toBeGreaterThan(3);
   expect(moved.every((o: any) => o.op === 'set')).toBe(true);
 });
+
+test('help page renders the guide and anchors scroll', async ({ page }) => {
+  await page.getByRole('link', { name: 'עזרה ומדריך' }).click();
+  await expect(page.getByRole('heading', { name: 'מדריך עזרה: מחמצת לעד' })).toBeVisible();
+  await page.locator('a[data-anchor]').first().click();
+  await expect(page).toHaveURL(/#\/help$/);
+});
