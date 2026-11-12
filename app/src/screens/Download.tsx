@@ -23,9 +23,19 @@ export function Download() {
       <h1>האפליקציה לאנדרואיד</h1>
       <section class="card">
         <span class="muted">עם האפליקציה השעונים המעוררים מצלצלים באמת, גם כשהמסך נעול.</span>
-        <a class="btn primary" href={APP_URL} download style="display:flex;justify-content:center;text-decoration:none">הורדת האפליקציה (APK)</a>
+        <a class="btn primary" href={APP_URL} download="machmetzet.apk" rel="noopener" data-testid="apk-link" style="display:flex;justify-content:center;text-decoration:none">הורדת האפליקציה (APK)</a>
         <div data-testid="qr" style="width:220px;max-width:100%;margin:8px auto" dangerouslySetInnerHTML={{ __html: svg }} />
-        <span class="muted">סרקו מהטלפון להורדה. אחרי ההורדה צריך לאשר התקנה ממקור לא מוכר.</span>
+        <span class="muted">סרקו מהטלפון להורדה.</span>
+        <details open>
+          <summary>איך מתקינים</summary>
+          <ol>
+            <li>לוחצים על "הורדת האפליקציה". אם כרום שואל, מאשרים הורדה.</li>
+            <li>פותחים את הקובץ מהתראת ההורדה או מתיקיית "הורדות".</li>
+            <li>אם מופיעה הודעה שההתקנה חסומה: "הגדרות" ואז מאשרים "התקנה ממקור לא ידוע" לכרום (או לאפליקציית הקבצים), וחוזרים.</li>
+            <li>מתקינים, פותחים, ובמסך הראשון מאשרים התראות ושעונים מעוררים.</li>
+          </ol>
+          <span class="muted">אם לא קורה כלום בלחיצה, העתק את הכתובת ופתח אותה ישירות בכרום: <span class="num" style="direction:ltr;display:inline-block;word-break:break-all">{APP_URL}</span></span>
+        </details>
       </section>
     </main>
   );
