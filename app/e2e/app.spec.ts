@@ -377,6 +377,37 @@ test('kneading rounds default to 4, can be set in the wizard and added or remove
   await expect(page.getByRole('button', { name: /קיפול \d מתוך 4/ })).toHaveCount(4);
 });
 
+test('recipes export (JSON, CSV, HTML page) and import round-trip', async ({ page }) => {
+  await page.goto('/#/recipe');
+  await page.getByLabel('שם המתכון').fill('לחם ייצוא');
+  await page.getByRole('button', { name: 'שמור מתכון' }).click();
+  const dl = async (name: string) => {
+    const [d] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name }).click()]);
+    return { name: d.suggestedFilename(), text: (await (await import('node:fs/promises')).readFile((await d.path())!, 'utf8')) };
+  };
+  const json = await dl('ייצוא JSON');
+  expect(json.name).toBe('recipes.json');
+  const csv = await dl('ייצוא CSV');
+  expect(csv.text).toContain('לחם ייצוא');
+  const html = await dl('דף HTML לשיתוף');
+  expect(html.text).toContain('dir="rtl"');
+  expect(html.text).not.toContain('<script');
+  // import the JSON back: same name and mix are skipped, a changed one is added
+  const fs = await import('node:fs/promises');
+  await fs.writeFile('/tmp/r1.json', json.text);
+  await page.getByLabel('ייבוא מתכונים').setInputFiles('/tmp/r1.json');
+  await expect(page.getByTestId('import-msg')).toContainText('יובאו 0 מתכונים');
+  const edited = JSON.parse(json.text);
+  edited.recipes[0].name = 'לחם מיובא';
+  await fs.writeFile('/tmp/r2.json', JSON.stringify(edited));
+  await page.getByLabel('ייבוא מתכונים').setInputFiles('/tmp/r2.json');
+  await expect(page.getByTestId('import-msg')).toContainText('יובאו 1 מתכונים');
+  await expect(page.getByTestId('recipe')).toHaveCount(2);
+  await fs.writeFile('/tmp/bad.json', '{"hello":1}');
+  await page.getByLabel('ייבוא מתכונים').setInputFiles('/tmp/bad.json');
+  await expect(page.getByTestId('import-msg')).toContainText('לא נראה כמו קובץ מתכונים');
+});
+
 test('apk link is a plain download link, the service worker leaves .apk alone, and install steps are shown', async ({ page, request }) => {
   await page.goto('/#/app');
   const link = page.getByTestId('apk-link');

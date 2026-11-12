@@ -540,3 +540,31 @@ describe('custom flours', () => {
     expect(() => suggestHydration([{ id: 'x', pct: 1 }])).toThrow();
   });
 });
+
+describe('recipe exchange', () => {
+  const r = {
+    id: 'r1', name: 'הלחם של "שבת", עם פסיק', fav: true, loaves: 2, rolls: 6, weight: 1000, shape: 'free' as const,
+    inclusions: ['זיתים', 'חמוציות'], kneading: 'machine' as const, cold: false, folds: 5, hydration: 0.75,
+    mix: [{ flour: 'white', grams: 700 }, { flour: 'whole', grams: 300 }],
+  };
+  it('round-trips through JSON and CSV (quotes and commas in names survive)', async () => {
+    const { toJson, fromJson, toCsv, fromCsv } = await import('../src/index');
+    expect(fromJson(toJson([r])).recipes[0]).toMatchObject(r);
+    const back = fromCsv('﻿' + toCsv([r]))[0]!;
+    expect(back).toMatchObject({ name: r.name, fav: true, loaves: 2, rolls: 6, weight: 1000, kneading: 'machine', cold: false, folds: 5, hydration: 0.75, inclusions: r.inclusions, mix: r.mix });
+  });
+  it('rejects files that are not recipes and drops broken entries', async () => {
+    const { fromJson, fromCsv } = await import('../src/index');
+    expect(() => fromJson('{"x":1}')).toThrow();
+    expect(() => fromCsv('a,b\n1,2')).toThrow();
+    expect(fromJson(JSON.stringify({ app: 'machmetzet', v: 1, recipes: [{ name: '' , mix: [] }, { name: 'ok', mix: [{ flour: 'white', grams: 5 }] }] })).recipes).toHaveLength(1);
+  });
+  it('builds a standalone page with flour percentages and no scripts', async () => {
+    const { recipeHtml } = await import('../src/index');
+    const html = recipeHtml(r, { זיתים: 0.18 });
+    expect(html).toContain('dir="rtl"');
+    expect(html).toContain('70%');
+    expect(html).toContain('18%');
+    expect(html).not.toContain('<script');
+  });
+});
