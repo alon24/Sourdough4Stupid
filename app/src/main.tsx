@@ -2,8 +2,10 @@ import { render } from 'preact';
 import { App } from './app';
 import './ui.css';
 import { startNative } from './native';
+import { startSync } from './sync/index';
 
 startNative();
+startSync();
 
 // service worker: tell the user when a new version is waiting, and look for one on every start and every return to the app
 if ('serviceWorker' in navigator) {

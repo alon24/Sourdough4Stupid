@@ -7,6 +7,7 @@ import { PlanScreen } from './screens/Plan';
 import { Recipes } from './screens/Recipes';
 import { StarterStatus } from './screens/StarterStatus';
 import { Start } from './screens/Start';
+import { Sync } from './screens/Sync';
 import { Wizard } from './screens/Wizard';
 import { Boundary } from './Boundary';
 import { Reminder } from './Reminder';
@@ -30,7 +31,7 @@ export function App() {
   }, []);
 
   const screen =
-    hash === '#/plan' ? <PlanScreen /> : hash === '#/recipes' ? <Recipes /> : hash === '#/recipe' ? <Wizard key="r" kind="recipe" /> : hash.startsWith('#/recipe/') ? <Wizard key={hash} kind="recipe" recipeId={hash.slice(9)} /> : hash.startsWith('#/new/') ? <Wizard key={hash} recipeId={hash.slice(6)} /> : hash === '#/new' ? <Wizard key="n" /> : hash === '#/start' ? <Start /> : hash === '#/starter' ? <StarterStatus /> : hash === '#/calc' ? <Calc /> : hash === '#/help' ? <Help /> : hash === '#/app' ? <Download /> : <Home />;
+    hash === '#/plan' ? <PlanScreen /> : hash === '#/recipes' ? <Recipes /> : hash === '#/recipe' ? <Wizard key="r" kind="recipe" /> : hash.startsWith('#/recipe/') ? <Wizard key={hash} kind="recipe" recipeId={hash.slice(9)} /> : hash.startsWith('#/new/') ? <Wizard key={hash} recipeId={hash.slice(6)} /> : hash === '#/new' ? <Wizard key="n" /> : hash === '#/start' ? <Start /> : hash === '#/starter' ? <StarterStatus /> : hash === '#/calc' ? <Calc /> : hash === '#/help' ? <Help /> : hash === '#/sync' ? <Sync /> : hash === '#/app' ? <Download /> : <Home />;
 
   return (
     <>

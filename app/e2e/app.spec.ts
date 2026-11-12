@@ -601,3 +601,9 @@ test('the home screen shows the app version', async ({ page }) => {
   await page.goto('/#/');
   await expect(page.getByTestId('version')).toContainText(/^v\d+\.\d+\.\d+/);
 });
+
+test('sync screen opens and explains the missing Google id', async ({ page }) => {
+  await page.goto('/#/sync');
+  await expect(page.getByRole('heading', { name: 'סנכרון עם Google Drive' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'התחברות עם Google' })).toBeDisabled();
+});
