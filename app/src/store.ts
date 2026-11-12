@@ -27,6 +27,8 @@ export interface ActivePlan {
   steps: Step[];
   /** what the plan was made from, so the start questionnaire can re-plan */
   input?: PlanInput;
+  /** the saved recipe this bake started from */
+  recipeId?: string;
   /** what to cut at the end of the bulk, always shown in the plan */
   split?: string;
   amounts: { name: string; grams: number }[];

@@ -15,7 +15,7 @@ const MIN = 60_000;
 const HOUR = 60 * MIN;
 
 export type StepKind =
-  | 'revive' | 'feed' | 'soak' | 'autolyse' | 'mix' | 'fold' | 'divide' | 'enrich'
+  | 'revive' | 'feed' | 'soak' | 'autolyse' | 'mix' | 'fold' | 'divide' | 'enrich' | 'shapeRolls'
   | 'shape' | 'outOfTin' | 'fridge' | 'preheat' | 'bake' | 'uncover' | 'done' | 'bakeRolls' | 'rollsDone';
 
 export interface Step {
@@ -30,6 +30,13 @@ export interface Step {
 }
 
 export const ROLL_BAKE = 'תנור 230° עם תבנית מים רותחים בתחתית. חריץ קטן בראש כל לחמנייה, אפשר להבריש מים ולפזר שומשום, פרג או שיבולת שועל. 12 דק\' עם אדים, להוציא את תבנית המים, להנמיך ל־210° ועוד 8–10 דק\' עד השחמה עמוקה. מהמקרר ישר לתנור.';
+
+export const MIX_AUTOLYSE = { title: 'להוסיף מחמצת ומלח', note: 'מערבבים את הסטארטר, ואחריו המלח עם קצת מהמים שנשארו.' };
+export const MIX_ALLIN = {
+  title: 'לערבב הכול יחד ולמוך',
+  note: "מפוררים את הסטארטר במים, מוסיפים קמח ומלח, ולשים 6–8 דק' עד בצק חלק ואלסטי שנפרד מהדפנות. אחר כך 30 דק' מנוחה לפני הקיפול הראשון.",
+};
+export const AUTOLYSE = { title: 'אוטוליזה: קמח ומים', note: "לערבב את הקמח עם רוב המים ולהשאיר לנוח. הקמח הלבן צריך פחות זמן (30–40 דק')." };
 
 export const BULK_DONE = 'הבצק גדל ב־50%–60%: כיפה מעוגלת, רועד כשמטלטלים את הקערה, ובועות בצדדים ובתחתית.';
 
@@ -173,8 +180,12 @@ export function plan(input: PlanInput, now: number = Date.now()): Plan {
   const rollHow = 'לחמניות: כדורים מתוחים על משטח בלי קמח (כדי שיהיה אחיזה), 5–7 ס"מ ביניהן על נייר אפייה, ' +
     (coldProof ? 'לכסות היטב: למקרר ללילה ולאפות קר, או להתפיח בחוץ 1.5–2 שעות ולאפות היום.' : 'לכסות ולהתפיח 1.5–2 שעות.');
   add('divide', rolls > 0 && hasLoaves ? 'לחלק: כיכרות ולחמניות' : 'עיצוב מוקדם', divideAt, true,
-    [BULK_DONE, rolls > 0 && hasLoaves ? `לחלק: ${splitText(split)}` : undefined, hasLoaves ? loafHow : undefined, rolls > 0 ? rollHow : undefined]
+    [BULK_DONE, rolls > 0 && hasLoaves ? `לחלק: ${splitText(split)}` : undefined, hasLoaves ? loafHow : undefined, rolls > 0 ? 'לחמניות: ההוראות המלאות בשלב "לעצב לחמניות" כמה דקות אחרי.' : undefined]
       .filter(Boolean).join('\n'));
+  if (rolls > 0) {
+    add('shapeRolls', `לעצב ${rolls} לחמניות (${Math.round(split.rollWeight)} ג' כל אחת)`, divideAt + 20 * MIN, true,
+      `לחתוך ${rolls} חתיכות של כ־${Math.round(split.rollWeight)} ג'.\n${rollHow}`);
+  }
   if (rolls > 0 && input.rollEnrich) {
     const g = Math.round(split.rollDough * ENRICH_PCT);
     const what = input.rollEnrich === 'oil' ? `${g} ג' שמן זית` : `${g} ג' סילאן`;
@@ -194,13 +205,9 @@ export function plan(input: PlanInput, now: number = Date.now()): Plan {
       (withInclusions ? `להוסיף: ${inclusions.map((x) => x.name).join(', ')}. ` : '') + FOLD_WHY);
   }
   const useAutolyse = input.autolyse !== false;
-  add('mix', useAutolyse ? 'להוסיף מחמצת ומלח' : 'לערבב הכול יחד ולמוך', mixAt, true,
-    useAutolyse
-      ? 'מערבבים את הסטארטר, ואחריו המלח עם קצת מהמים שנשארו.'
-      : 'מפוררים את הסטארטר במים, מוסיפים קמח ומלח, ולשים 6–8 דק\' עד בצק חלק ואלסטי שנפרד מהדפנות. אחר כך 30 דק\' מנוחה לפני הקיפול הראשון.');
+  add('mix', useAutolyse ? MIX_AUTOLYSE.title : MIX_ALLIN.title, mixAt, true, useAutolyse ? MIX_AUTOLYSE.note : MIX_ALLIN.note);
   if (useAutolyse) {
-    const autolyseAt = mixAt - (kneading === 'hand' ? 45 : 30) * MIN;
-    add('autolyse', 'אוטוליזה: קמח ומים', autolyseAt, true, 'לערבב את הקמח עם רוב המים ולהשאיר לנוח. הקמח הלבן צריך פחות זמן (30–40 דק\').');
+    add('autolyse', AUTOLYSE.title, mixAt - (kneading === 'hand' ? 45 : 30) * MIN, true, AUTOLYSE.note);
   }
   const soaked = inclusions.filter((x) => x.soak);
   if (soaked.length > 0) {
@@ -375,4 +382,32 @@ export function removeFold(steps: Step[], id: string): Step[] {
   const s = steps.find((x) => x.id === id);
   if (!s || s.kind !== 'fold') return steps;
   return renumber(steps.filter((x) => x.id !== id));
+}
+
+/**
+ * Turn autolyse on or off in a running plan, from the step you are at.
+ * Off: the autolyse step goes and the mix becomes "everything together, knead 6-8 min, rest 30".
+ * On: an autolyse step is added before the mix; if there is no room before the mix it starts now
+ * and the mix and everything after it move later by the missing time.
+ * Does nothing once the mix is done.
+ */
+export function setAutolyse(steps: Step[], on: boolean, now: number, minutes = 45): Step[] {
+  const mix = steps.find((s) => s.kind === 'mix');
+  if (!mix || mix.doneAt !== undefined) return steps;
+  const auto = steps.find((s) => s.kind === 'autolyse');
+  if (on === (auto !== undefined)) return steps;
+  const retitle = (list: Step[], t: { title: string; note: string }) =>
+    list.map((s) => (s.id === mix.id ? { ...s, title: t.title, note: t.note } : s));
+  if (!on) {
+    if (auto!.doneAt !== undefined) return steps;
+    return retitle(steps.filter((s) => s.id !== auto!.id), MIX_ALLIN);
+  }
+  const len = minutes * MIN;
+  const id = `autolyse-${Math.max(...steps.map((s) => Number(s.id.replace(/\D/g, '')) || 0)) + 1}`;
+  const at = Math.max(now, mix.at - len);
+  const added: Step = { id, kind: 'autolyse', title: AUTOLYSE.title, at, alarm: true, note: AUTOLYSE.note };
+  const withIt = retitle([...steps, added], MIX_AUTOLYSE);
+  const delayMin = (at + len - mix.at) / MIN;
+  const shifted = delayMin > 0.5 ? shift(withIt, mix.id, delayMin, true) : withIt;
+  return shifted.sort((a, b) => a.at - b.at);
 }

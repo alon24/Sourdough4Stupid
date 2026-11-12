@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import {
-  addFold, removeFold, bulkState, complete, doughTempAdvice, FRICTION, resumeAt, retimeBulk, roomTempTip, setAlarm, shift, TARGET_DOUGH_C,
+  addFold, removeFold, setAutolyse, bulkState, complete, doughTempAdvice, FRICTION, resumeAt, retimeBulk, roomTempTip, setAlarm, shift, TARGET_DOUGH_C,
   waterTemp, type Reading, type Step,
 } from '../../../core/src/index';
 import { dayName, grams, hhmm, toLocalInput, until } from '../format';
@@ -11,6 +11,7 @@ export function PlanScreen() {
   const [open, setOpen] = useState<string | null>(null);
   const [cascade, setCascade] = useState(true);
   const [doneAtInput, setDoneAtInput] = useState('');
+  const [derive, setDerive] = useState<boolean | null>(null);
 
   if (!plan) {
     return (
@@ -29,6 +30,19 @@ export function PlanScreen() {
   const update = (s: Step[]) => {
     setState({ plan: { ...getState().plan!, steps: s, undo: steps } });
     setOpen(null);
+  };
+  const mixStep = steps.find((s) => s.kind === 'mix');
+  const hasAutolyse = steps.some((s) => s.kind === 'autolyse');
+  const toggleAutolyse = (on: boolean) => {
+    update(setAutolyse(steps, on, Date.now(), plan.kneading === 'machine' ? 30 : 45));
+    setState({ plan: { ...getState().plan!, input: plan.input ? { ...plan.input, autolyse: on } : plan.input } });
+    if (plan.recipeId) setDerive(on);
+  };
+  const deriveRecipe = () => {
+    const st = getState();
+    const base = st.recipes.find((r) => r.id === plan.recipeId);
+    if (base) setState({ recipes: [...st.recipes, { ...base, id: `r${Date.now()}`, name: `${base.name} (${derive ? 'עם' : 'בלי'} אוטוליזה)`, fav: false, derivedFrom: base.id, autolyse: !!derive }] });
+    setDerive(null);
   };
   const finish = () => setState({ plan: null, history: [{ title: plan.title, finishedAt: Date.now() }, ...history] });
   const askNotify = () => 'Notification' in window && Notification.requestPermission();
@@ -66,6 +80,25 @@ export function PlanScreen() {
 
       {plan.input && !steps.some((s) => s.doneAt !== undefined) && (
         <a class="btn primary" href="#/start" style="display:flex;justify-content:center;text-decoration:none">התחלת ביצוע: איפה אני?</a>
+      )}
+
+      {mixStep && mixStep.doneAt === undefined && (
+        <section class="card" aria-label="אוטוליזה">
+          <div class="row">
+            <strong>אוטוליזה</strong>
+            <button class="btn small" onClick={() => toggleAutolyse(!hasAutolyse)}>
+              {hasAutolyse ? 'בלי אוטוליזה, הכול יחד' : 'להוסיף אוטוליזה'}
+            </button>
+          </div>
+          <span class="muted">{hasAutolyse ? 'קמח ומים נחים לפני הערבוב.' : 'הכול נכנס יחד: לישה 6–8 דק\' ו־30 דק\' מנוחה לפני הקיפול הראשון.'}</span>
+          {derive !== null && (
+            <div role="alert" class="grid2">
+              <strong style="grid-column:1/-1">לשמור את השינוי כמתכון חדש?</strong>
+              <button class="btn primary small" onClick={deriveRecipe}>כן, מתכון חדש</button>
+              <button class="btn small" onClick={() => setDerive(null)}>לא, רק הפעם</button>
+            </div>
+          )}
+        </section>
       )}
 
       {plan.split && plan.input && plan.input.loaves > 0 && plan.input.rolls > 0 && (

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  addFold, removeFold, alarmOps, bulkState, doughTempAdvice, roomTempTip, retimeBulk, bakeProfile, buildChain, doughFromStarter, fits, yieldOptions, complete, setAlarm, hydrationAdvice, suggestHydration, dough, doughForTin, feed, peakHours, plan, PRESETS, ratioForWindow, resumeAt,
+  addFold, removeFold, setAutolyse, alarmOps, bulkState, doughTempAdvice, roomTempTip, retimeBulk, bakeProfile, buildChain, doughFromStarter, fits, yieldOptions, complete, setAlarm, hydrationAdvice, suggestHydration, dough, doughForTin, feed, peakHours, plan, PRESETS, ratioForWindow, resumeAt,
   revivalFeeds, seedFor, shift, split, waterTemp,
 } from '../src/index.js';
 
@@ -612,7 +612,6 @@ describe('reference scenario: 32 g stiff from the fridge, 300 g tomorrow, 2 loav
     expect(d.note).toContain('50%–60%');
     expect(d.note).toContain('2 כיכרות × 1000');
     expect(d.note).toMatch(/7 לחמניות × 10\d ג'/);
-    expect(d.note).toContain('בלי קמח');
     expect(d.note).toContain('15–20');
   });
 
@@ -646,5 +645,70 @@ describe('reference scenario: 32 g stiff from the fridge, 300 g tomorrow, 2 loav
     const open = steps.filter((s) => s.doneAt === undefined);
     expect(open.slice(0, 2).map((s) => s.kind)).toEqual(['fold', 'divide']);
     expect(steps.filter((s) => s.kind === 'fold' && s.doneAt !== undefined)).toHaveLength(3);
+  });
+});
+
+describe('autolyse toggled in a running bake', () => {
+  const base = {
+    outOfOvenAt: Date.UTC(2026, 10, 14, 7, 0), loaves: 2, rolls: 0, starterReady: true,
+    starter: { type: 'stiff' as const, hydration: 0.5, daysInFridge: 0 }, kneading: 'hand' as const,
+  };
+  const now = Date.UTC(2026, 10, 13, 6, 0);
+
+  it('off: the autolyse step goes, the mix becomes all-in, and the alarm is cancelled', () => {
+    const p = plan(base, now).steps;
+    const auto = p.find((s) => s.kind === 'autolyse')!;
+    const off = setAutolyse(p, false, now);
+    expect(off.some((s) => s.kind === 'autolyse')).toBe(false);
+    expect(off.find((s) => s.kind === 'mix')!.title).toContain('הכול יחד');
+    expect(alarmOps(p, off)).toContainEqual({ op: 'cancel', id: auto.id });
+  });
+
+  it('on with room before the mix: autolyse is placed before it and nothing else moves', () => {
+    const noAuto = plan({ ...base, autolyse: false }, now).steps;
+    const mix = noAuto.find((s) => s.kind === 'mix')!;
+    const on = setAutolyse(noAuto, true, mix.at - 3 * HOUR);
+    const auto = on.find((s) => s.kind === 'autolyse')!;
+    expect(auto.at).toBe(mix.at - 45 * 60_000);
+    expect(on.find((s) => s.kind === 'mix')!.at).toBe(mix.at);
+    expect(on.find((s) => s.kind === 'mix')!.title).toContain('מחמצת ומלח');
+  });
+
+  it('on at the mix: autolyse starts now, the mix and later steps move by the missing time, order kept, alarms diffed', () => {
+    const noAuto = plan({ ...base, autolyse: false }, now).steps;
+    const mix = noAuto.find((s) => s.kind === 'mix')!;
+    const lastFold = noAuto.filter((s) => s.kind === 'fold').at(-1)!;
+    const on = setAutolyse(noAuto, true, mix.at);
+    const auto = on.find((s) => s.kind === 'autolyse')!;
+    expect(auto.at).toBe(mix.at);
+    expect(on.find((s) => s.kind === 'mix')!.at).toBe(mix.at + 45 * 60_000);
+    expect(on.find((s) => s.id === lastFold.id)!.at).toBe(lastFold.at + 45 * 60_000);
+    expect(on.every((s, i) => i === 0 || s.at >= on[i - 1]!.at)).toBe(true);
+    const ops = alarmOps(noAuto, on);
+    expect(ops).toContainEqual(expect.objectContaining({ op: 'set', id: auto.id }));
+    expect(ops).toContainEqual(expect.objectContaining({ op: 'set', id: mix.id }));
+  });
+
+  it('does nothing when it is already so, or once the mix is done', () => {
+    const p = plan(base, now).steps;
+    expect(setAutolyse(p, true, now)).toBe(p);
+    const mix = p.find((s) => s.kind === 'mix')!;
+    const done = complete(p, mix.id, mix.at);
+    expect(setAutolyse(done, false, now)).toBe(done);
+  });
+});
+
+describe('roll instructions have their own step', () => {
+  it('shapeRolls comes after the split, before the final shape, with grams, tension, spacing and the proof choice', () => {
+    const p = plan({
+      outOfOvenAt: Date.UTC(2026, 10, 14, 7, 0), loaves: 2, rolls: 7, loafWeight: 1000, rollWeight: 100, starterReady: true,
+      starter: { type: 'stiff', hydration: 0.5, daysInFridge: 0 }, kneading: 'hand', rollEnrich: 'oil',
+    }, Date.UTC(2026, 10, 12, 8, 0));
+    const r = p.steps.find((s) => s.kind === 'shapeRolls')!;
+    expect(r.title).toMatch(/7 לחמניות/);
+    expect(r.at).toBeGreaterThan(p.steps.find((s) => s.kind === 'enrich')!.at);
+    expect(r.at).toBeLessThan(p.steps.find((s) => s.kind === 'shape')!.at);
+    for (const w of ['כדורים מתוחים', 'בלי קמח', 'נייר אפייה', '1.5–2 שעות', 'מקרר']) expect(r.note).toContain(w);
+    expect(plan({ outOfOvenAt: Date.UTC(2026, 10, 14, 7, 0), loaves: 2, rolls: 0, starterReady: true, starter: { type: 'stiff', hydration: 0.5, daysInFridge: 0 }, kneading: 'hand' }, 0).steps.some((s) => s.kind === 'shapeRolls')).toBe(false);
   });
 });
