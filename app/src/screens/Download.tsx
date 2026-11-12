@@ -1,3 +1,4 @@
+import { useState } from 'preact/hooks';
 import qrcode from 'qrcode-generator';
 
 // Swap this when there is a store listing.
@@ -23,19 +24,27 @@ export function pageUrl(): string {
 
 export function Download() {
   const target = pageUrl();
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(APP_URL); setCopied(true); } catch { setCopied(false); window.prompt('העתק את הקישור', APP_URL); }
+  };
   return (
     <main class="screen">
       <a href="#/" style="font-weight:700;color:inherit;text-decoration:none">‹ חזרה</a>
       <h1>האפליקציה לאנדרואיד</h1>
       <section class="card">
         <span class="muted">עם האפליקציה השעונים המעוררים מצלצלים באמת, גם כשהמסך נעול.</span>
-        <a class="btn primary" href={APP_URL} download="machmetzet.apk" rel="noopener" data-testid="apk-link">הורדת האפליקציה (APK)</a>
+        <a class="btn primary" href={APP_URL} download="machmetzet.apk" rel="noopener" data-testid="apk-link">הורדה ישירה (APK)</a>
+        <div class="row" style="gap:8px">
+          <span class="num" data-testid="apk-url" style="direction:ltr;word-break:break-all;font-size:13px;flex:1">{APP_URL}</span>
+          <button class="btn small" onClick={copy} data-testid="copy-link">{copied ? 'הועתק ✓' : 'העתק קישור'}</button>
+        </div>
         <div data-testid="qr" data-target={target} style="width:220px;max-width:100%;margin:8px auto" dangerouslySetInnerHTML={{ __html: qrSvg(target) }} />
         <span class="muted">סרקו מהטלפון להורדה.</span>
         <details open>
           <summary>איך מתקינים</summary>
           <ol>
-            <li>לוחצים על "הורדת האפליקציה". אם כרום שואל, מאשרים הורדה.</li>
+            <li>לוחצים על "הורדה ישירה". אם כרום שואל, מאשרים הורדה.</li>
             <li>פותחים את הקובץ מהתראת ההורדה או מתיקיית "הורדות".</li>
             <li>אם מופיעה הודעה שההתקנה חסומה: "הגדרות" ואז מאשרים "התקנה ממקור לא ידוע" לכרום (או לאפליקציית הקבצים), וחוזרים.</li>
             <li>מתקינים, פותחים, ובמסך הראשון מאשרים התראות ושעונים מעוררים.</li>
