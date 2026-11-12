@@ -1,12 +1,11 @@
 /** Backward planner: from "bread out of the oven at T" to a list of timed steps. */
 import { bakeProfile, type LoafShape } from './bake.js';
+import { buildChain, type Stage } from './build.js';
 import { flourName, type BlendShare } from './flours.js';
+import { bulkState, type Reading } from './temp.js';
 import { dough, type DoughResult, type Inclusion, type Piece } from './dough.js';
 import {
-  feed,
-  ratioForWindow,
   revivalFeeds,
-  seedFor,
   tempFactor,
   type Ratio,
   type StarterType,
@@ -38,7 +37,18 @@ export interface PlanInput {
   loafWeight?: number;
   loafShape?: LoafShape;
   rollWeight?: number;
-  starter: { type: StarterType; hydration: number; daysInFridge: number; speedFactor?: number };
+  starter: {
+    type: StarterType;
+    hydration: number;
+    daysInFridge: number;
+    speedFactor?: number;
+    /** grams you have now; the plan builds up from this with as many feedings as needed */
+    haveGrams?: number;
+  };
+  /** grams of starter to have ready for mixing (default: what the dough needs) */
+  buildTarget?: number;
+  /** the starter is already built and ready: no feeding steps */
+  starterReady?: boolean;
   roomTempC?: number;
   kneading: 'hand' | 'machine';
   inclusions?: (Inclusion & { soak?: boolean })[];
@@ -56,6 +66,10 @@ export interface Plan {
   steps: Step[];
   dough: DoughResult;
   build: { seed: number; ratio: Ratio; addFlour: number; addWater: number; hours: number };
+  /** every feeding from what you have to what you need, in order */
+  chain: Stage[];
+  /** for temperature-aware retiming of the bulk */
+  bulk: { startAt: number; refMin: number; startC: number };
   /** true when the first step is already in the past relative to `now` */
   startsInPast: boolean;
 }
@@ -110,7 +124,8 @@ export function plan(input: PlanInput, now: number = Date.now()): Plan {
   add('divide', rolls > 0 && hasLoaves ? 'לחלק לבצק לחם ולחמניות, עיצוב מוקדם' : 'עיצוב מוקדם', divideAt);
 
   // bulk: 4.5 h at 24°C with 20% levain; more levain is faster
-  const bulkMs = 4.5 * HOUR * tf * (0.2 / levainPct) ** 0.5;
+  const refMin = 270 * (0.2 / levainPct) ** 0.5;
+  const bulkMs = refMin * MIN * tf;
   const mixAt = divideAt - bulkMs;
   const folds = kneading === 'hand' ? 4 : 2;
   const foldGap = (kneading === 'hand' ? 30 : 45) * MIN;
@@ -128,27 +143,44 @@ export function plan(input: PlanInput, now: number = Date.now()): Plan {
   }
 
   // --- starter build, peaking at mix time ---
-  const choice = ratioForWindow(feedWindowH, {
-    type: starter.type, hydration: starter.hydration,
-    tempC: roomTempC, speedFactor: starter.speedFactor,
-  });
+  const target = Math.max(input.buildTarget ?? 0, d.levain);
+  const chain: Stage[] = input.starterReady
+    ? []
+    : buildChain({
+        have: starter.haveGrams ?? Number.MAX_SAFE_INTEGER, target,
+        type: starter.type, hydration: starter.hydration,
+        tempC: roomTempC, speedFactor: starter.speedFactor, windowH: feedWindowH,
+      });
   const revive = revivalFeeds(starter.daysInFridge);
-  const seed = seedFor(d.levain, [choice.ratio]);
-  const built = feed(seed, starter.hydration, choice.ratio);
-  const feedAt = mixAt - choice.hours * HOUR;
-  const r = choice.ratio;
-  add('feed', `להאכיל סטארטר 1:${r.a}:${+r.b.toFixed(1)}`, feedAt, true,
-    `${Math.round(seed)} ג' סטארטר + ${Math.round(built.addFlour)} ג' קמח + ${Math.round(built.addWater)} ג' מים`);
-  for (let i = 1; i <= revive; i++) {
-    add('revive', 'האכלת חיזוק 1:3', feedAt - i * 12 * HOUR, true,
-      `הסטארטר ${starter.daysInFridge} ימים במקרר`);
+  let feedAt = mixAt;
+  chain.forEach((st, i) => {
+    const fromEnd = chain.length - 1 - i;
+    const at = mixAt - chain.slice(i).reduce((sum, x) => sum + x.hours, 0) * HOUR;
+    if (i === 0) feedAt = at;
+    const r = st.ratio;
+    const label = chain.length > 1 ? `האכלה ${i + 1} מתוך ${chain.length}` : 'להאכיל סטארטר';
+    add('feed', `${label} 1:${r.a}:${+r.b.toFixed(1)}`, at, true,
+      `${Math.round(st.seed)} ג' סטארטר + ${Math.round(st.addFlour)} ג' קמח + ${Math.round(st.addWater)} ג' מים` +
+        (fromEnd === 0 ? ` (יוצא ${Math.round(st.total)} ג')` : ''));
+  });
+  if (chain.length > 0) {
+    for (let i = 1; i <= revive; i++) {
+      add('revive', 'האכלת חיזוק 1:3', feedAt - i * 12 * HOUR, true,
+        `הסטארטר ${starter.daysInFridge} ימים במקרר`);
+    }
   }
+  const last = chain[chain.length - 1];
+  const buildInfo = last
+    ? { seed: last.seed, ratio: last.ratio, addFlour: last.addFlour, addWater: last.addWater, hours: last.hours }
+    : { seed: 0, ratio: { a: 0, b: 0 }, addFlour: 0, addWater: 0, hours: 0 };
 
   steps.sort((x, y) => x.at - y.at);
   return {
     steps,
     dough: d,
-    build: { seed, ratio: r, addFlour: built.addFlour, addWater: built.addWater, hours: choice.hours },
+    build: buildInfo,
+    chain,
+    bulk: { startAt: mixAt, refMin, startC: roomTempC },
     startsInPast: steps[0]!.at < now,
   };
 }
@@ -233,4 +265,22 @@ export function alarmOps(before: Step[], after: Step[]): AlarmOp[] {
 export function setAlarm(steps: Step[], id: string, on: boolean): Step[] {
   if (!steps.some((s) => s.id === id)) throw new RangeError(`unknown step ${id}`);
   return steps.map((s) => (s.id === id ? { ...s, alarm: on } : s));
+}
+
+/**
+ * Re-time the end of the bulk (the divide step and everything after it) from what you measured.
+ * Does nothing until the bulk has started, and ignores differences under 5 minutes.
+ */
+export function retimeBulk(
+  steps: Step[],
+  bulk: { startAt: number; refMin: number; startC: number },
+  readings: Reading[],
+  now: number,
+): Step[] {
+  const divide = steps.find((s) => s.kind === 'divide' && s.doneAt === undefined);
+  if (!divide || now < bulk.startAt) return steps;
+  const st = bulkState(readings, now, bulk);
+  const newEnd = now + st.remainingMin * MIN;
+  const deltaMin = (newEnd - divide.at) / MIN;
+  return Math.abs(deltaMin) < 5 ? steps : shift(steps, divide.id, deltaMin, true);
 }

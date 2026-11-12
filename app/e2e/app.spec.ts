@@ -151,3 +151,99 @@ test('alarm changes reach the native alarm clock', async ({ page }) => {
   expect(moved.length).toBeGreaterThan(3);
   expect(moved.every((o: any) => o.op === 'set')).toBe(true);
 });
+
+test('starting from starter: 300 g wanted, 30 g in the fridge', async ({ page }) => {
+  await page.goto('/#/new');
+  await page.getByRole('button', { name: 'מכמה סטארטר' }).click();
+  await expect(page.getByTestId('chain')).toContainText('2 האכלות');
+  await page.getByRole('button', { name: '2 לחמים + 8 לחמניות' }).click();
+  await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
+  await expect(page.getByRole('button', { name: /האכלה 1 מתוך 2/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /האכלה 2 מתוך 2/ })).toBeVisible();
+});
+
+test('more starter in hand means fewer feedings', async ({ page }) => {
+  await page.goto('/#/new');
+  await page.getByRole('button', { name: 'מכמה סטארטר' }).click();
+  await page.getByLabel('יש לי עכשיו (גרם)').fill('250');
+  await expect(page.getByTestId('chain')).toContainText('האכלה אחת');
+});
+
+test('a ready starter skips the feeding steps', async ({ page }) => {
+  await page.goto('/#/new');
+  await page.getByRole('button', { name: 'מכמה סטארטר' }).click();
+  await page.getByLabel('הסטארטר כבר מוכן ועל השיא').check();
+  await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
+  await expect(page.getByRole('heading', { name: 'התוכנית שלך' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /האכלה|להאכיל סטארטר/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /אוטוליזה/ })).toBeVisible();
+});
+
+test('a step can be marked done at a time that already passed', async ({ page }) => {
+  await page.goto('/#/new');
+  await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
+  await page.getByRole('button', { name: /להאכיל סטארטר/ }).click();
+  await page.getByLabel('בוצע בשעה (אם כבר עשית)').fill('07:00');
+  await page.getByRole('button', { name: /סמן שבוצע ב/ }).click();
+  await expect(page.getByRole('button', { name: /להאכיל סטארטר/ })).toBeVisible();
+});
+
+async function planWithBulkRunning(page: import('@playwright/test').Page, hideToast = true) {
+  await page.goto('/#/new');
+  // out of the oven 15.5 h from now puts the bulk about 2.75 h in
+  const value = await page.evaluate(() => {
+    const d = new Date(Date.now() + 15.5 * 3_600_000);
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+  });
+  await page.getByLabel('יוצא מהתנור').fill(value);
+  await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
+  // earlier steps are already due, so their reminder would cover the screen; the reminder is tested elsewhere
+  if (hideToast) await page.addStyleTag({ content: '.toast{display:none}' });
+}
+
+const minutesLeft = async (page: import('@playwright/test').Page) => {
+  const t = await page.getByTestId('bulk-left').innerText();
+  const [h, m] = t.split(':').map(Number);
+  return (h ?? 0) * 60 + (m ?? 0);
+};
+
+test('before the bulk, the app suggests a water temperature', async ({ page }) => {
+  await page.goto('/#/new');
+  await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
+  await expect(page.getByTestId('water-tip')).toContainText('מים בכ־');
+});
+
+test('warm dough shortens the remaining bulk, cold dough lengthens it, and advice is shown', async ({ page }) => {
+  await planWithBulkRunning(page);
+  const base = await minutesLeft(page);
+  expect(base).toBeGreaterThan(60);
+  await page.getByLabel('בצק °C').fill('30');
+  await page.getByRole('button', { name: 'עדכן את הזמנים' }).click();
+  await expect(page.getByTestId('dough-advice')).toContainText('חם מהיעד');
+  const warm = await minutesLeft(page);
+  expect(warm).toBeLessThan(base);
+  await page.getByLabel('בצק °C').fill('19');
+  await page.getByRole('button', { name: 'עדכן את הזמנים' }).click();
+  await expect(page.getByTestId('dough-advice')).toContainText('קר מהיעד');
+  expect(await minutesLeft(page)).toBeGreaterThan(warm);
+});
+
+test('a measured rise corrects the estimate and can be undone', async ({ page }) => {
+  await planWithBulkRunning(page);
+  const finish = page.getByTestId('finish');
+  const before = await finish.innerText();
+  await page.getByLabel('עלייה %').fill('70');
+  await page.getByRole('button', { name: 'עדכן את הזמנים' }).click();
+  await expect(finish).not.toHaveText(before);
+  await page.getByRole('button', { name: 'בטל שינוי' }).click();
+  await expect(finish).toHaveText(before);
+});
+
+test('an overdue step shows a reminder that snoozes the plan', async ({ page }) => {
+  await planWithBulkRunning(page, false);
+  const alert = page.getByRole('alert');
+  await expect(alert).toBeVisible();
+  await alert.getByRole('button', { name: 'נודניק 10' }).click();
+  await expect(alert).toHaveCount(0);
+});
