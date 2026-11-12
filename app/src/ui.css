@@ -84,3 +84,13 @@ table.amounts td:last-child { text-align: end; font-weight: 800; }
 .help .tbl{overflow-x:auto}
 .help table{border-collapse:collapse;width:100%}
 .help th,.help td{border-bottom:2px solid #FFF6E5;padding:6px 8px;text-align:start;vertical-align:top}
+
+/* touch targets: at least 44px on every control (Android guideline is 48dp, but dense editors get 44) */
+main input:not([type=checkbox]):not([type=file]), main select, main .btn.small, main summary { min-height: 44px; }
+main input[type=checkbox] { width: 24px; height: 24px; }
+main select.tag { min-height: 44px; }
+
+/* Android: keep focused/scrolled-to controls clear of the sticky tab bar, respect system bars and cutouts */
+html { scroll-padding-bottom: 110px; }
+main { padding-top: max(24px, env(safe-area-inset-top)); padding-left: max(20px, env(safe-area-inset-left)); padding-right: max(20px, env(safe-area-inset-right)); }
+nav.tabs { margin-bottom: max(12px, env(safe-area-inset-bottom)); }
