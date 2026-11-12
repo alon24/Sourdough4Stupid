@@ -1,0 +1,16 @@
+name = "sourdough-bot"
+main = "src/worker.ts"
+compatibility_date = "2025-01-01"
+
+# One Durable Object (SQLite-backed, free plan) keeps the plan copy. No database to create.
+[[durable_objects.bindings]]
+name = "HUB"
+class_name = "Hub"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Hub"]
+
+# Checks every minute for steps that are due.
+[triggers]
+crons = ["* * * * *"]
