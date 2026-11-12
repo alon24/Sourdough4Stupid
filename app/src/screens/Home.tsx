@@ -66,6 +66,7 @@ export function Home() {
       </div>
       <a href="#/help" style="text-align:center;color:inherit;font-weight:700">עזרה ומדריך</a>
       <a href="#/app" style="text-align:center;color:inherit;font-weight:700">הורדת אפליקציית אנדרואיד</a>
+      <a href="#/sync" style="text-align:center;color:inherit;font-weight:700">סנכרון עם Google Drive</a>
     </main>
   );
 }
