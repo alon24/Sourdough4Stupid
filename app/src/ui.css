@@ -25,8 +25,18 @@ h1 { margin: 0; font-size: 28px; font-weight: 800; line-height: 1.1; }
 .big { font-size: 24px; font-weight: 800; line-height: 1.15; }
 .num { direction: ltr; unicode-bidi: isolate; display: inline-block; font-variant-numeric: tabular-nums; }
 button, input, select { font: inherit; color: inherit; }
-.btn { min-height: 56px; padding: 0 20px; border-radius: 28px; border: 2px solid var(--ink); background: transparent; font-weight: 700; cursor: pointer; }
+.btn { display: inline-flex; align-items: center; justify-content: center; text-align: center; text-decoration: none; color: inherit; line-height: 1.2; min-height: 56px; padding: 0 20px; border-radius: 28px; border: 2px solid var(--ink); background: transparent; font-weight: 700; cursor: pointer; }
 .btn.primary { background: #2B1D3A; border-color: #2B1D3A; color: #fff; }
+@media (prefers-color-scheme: dark) { .btn.primary { background: var(--sun); border-color: var(--sun); color: #2B1D3A; } }
+.btn.quiet { border-color: transparent; background: transparent; text-decoration: underline; font-weight: 500; min-height: 44px; }
+.btn.icon { text-decoration: none; width: 48px; min-height: 48px; padding: 0; font-size: 22px; }
+main > .btn, .card > .btn { width: 100%; }
+.more > summary { list-style: none; cursor: pointer; }
+.more > summary::-webkit-details-marker { display: none; }
+.more[open] > summary { border-style: dashed; }
+.more .menu { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.tools { background: transparent; padding: 0; }
+.tools > summary { min-height: 44px; display: flex; align-items: center; justify-content: center; color: var(--muted); cursor: pointer; font-weight: 600; }
 .btn.small { min-height: 48px; padding: 0 16px; font-size: 15px; }
 .btn:active { transform: scale(.98); }
 :focus-visible { outline: 3px solid var(--coral); outline-offset: 2px; }

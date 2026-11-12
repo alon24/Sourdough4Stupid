@@ -35,7 +35,7 @@ export function Home() {
             {starter.inFridge ? 'הוצאתי מהמקרר' : 'הכנסתי למקרר'}
           </button>
         </div>
-        <a class="btn small" href="#/starter" style="display:flex;justify-content:center;text-decoration:none;color:#2B1D3A;border-color:#2B1D3A">מה מצב הסטארטר? (שאלון קצר)</a>
+        <a class="btn small" href="#/starter" style="color:#2B1D3A;border-color:#2B1D3A">מה מצב הסטארטר? (שאלון קצר)</a>
       </section>
 
       {next && plan ? (

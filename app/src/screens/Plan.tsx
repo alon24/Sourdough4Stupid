@@ -79,7 +79,7 @@ export function PlanScreen() {
       </details>
 
       {plan.input && !steps.some((s) => s.doneAt !== undefined) && (
-        <a class="btn primary" href="#/start" style="display:flex;justify-content:center;text-decoration:none">התחלת ביצוע: איפה אני?</a>
+        <a class="btn primary" href="#/start">התחלת ביצוע: איפה אני?</a>
       )}
 
       {mixStep && mixStep.doneAt === undefined && (

@@ -17,7 +17,7 @@ export class Boundary extends Component<{ children: ComponentChildren; resetKey:
         <section class="crash" role="alert">
           <strong>משהו השתבש במסך הזה</strong>
           <span class="muted">אפשר לעבור למסך אחר בלשוניות למטה. אם זה חוזר, שלח לי את ההודעה: {this.state.error}</span>
-          <a class="btn small" href="#/" style="display:flex;justify-content:center;text-decoration:none;color:inherit">לבית</a>
+          <a class="btn small" href="#/">לבית</a>
         </section>
       </main>
     );

@@ -336,7 +336,9 @@ test('recipes: create with a managed inclusion, bake from it, and derive a new r
   await page.getByRole('button', { name: 'כן, מתכון חדש' }).click();
   await page.getByRole('link', { name: 'מתכונים' }).click();
   await expect(page.getByTestId('recipe')).toHaveCount(2);
+  await page.getByTestId('recipe').filter({ hasText: 'הלחם של שבת (גרסה)' }).locator('summary').click();
   await page.getByRole('button', { name: /מחק את הלחם של שבת \(גרסה\)/ }).click();
+  await page.getByRole('button', { name: /אישור מחיקה/ }).click();
   await expect(page.getByTestId('recipe')).toHaveCount(1);
 });
 
@@ -381,6 +383,9 @@ test('recipes export (JSON, CSV, HTML page) and import round-trip', async ({ pag
   await page.goto('/#/recipe');
   await page.getByLabel('שם המתכון').fill('לחם ייצוא');
   await page.getByRole('button', { name: 'שמור מתכון' }).click();
+  await page.goto('/#/recipes');
+  await page.getByText('ייבוא וייצוא').click();
+  await page.getByTestId('recipe').locator('summary').click();
   const dl = async (name: string) => {
     const [d] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name }).click()]);
     return { name: d.suggestedFilename(), text: (await (await import('node:fs/promises')).readFile((await d.path())!, 'utf8')) };
