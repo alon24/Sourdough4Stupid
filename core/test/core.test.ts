@@ -568,3 +568,83 @@ describe('recipe exchange', () => {
     expect(html).not.toContain('<script');
   });
 });
+
+describe('reference scenario: 32 g stiff from the fridge, 300 g tomorrow, 2 loaves + rolls', () => {
+  const input = {
+    outOfOvenAt: Date.UTC(2026, 10, 14, 7, 0), loaves: 2, rolls: 7, loafWeight: 1000, rollWeight: 100,
+    starter: { type: 'stiff' as const, hydration: 0.5, daysInFridge: 10, haveGrams: 32 },
+    buildTarget: 300, useAllStarter: true, overnightFeed: true, autolyse: false, rollEnrich: 'oil' as const,
+    kneading: 'hand' as const, hydration: 0.68, roomTempC: 21, blend: [{ id: 'white', pct: 1 }],
+  };
+  const p = plan(input, Date.UTC(2026, 10, 12, 8, 0));
+  const by = (k: string) => p.steps.filter((s) => s.kind === k);
+
+  it('scales 32 g into 330 g in one overnight feeding (about 1:6:3), 30 g kept as the next seed', () => {
+    expect(p.chain).toHaveLength(1);
+    const c = p.chain[0]!;
+    expect(c.seed).toBeCloseTo(32, 0);
+    expect(c.addFlour).toBeCloseTo(199, 0);
+    expect(c.addWater).toBeCloseTo(99, 0);
+    expect(c.total).toBeCloseTo(330, 0);
+    const feed = by('feed')[0]!;
+    expect(feed.note).toContain('X');
+    expect(feed.note).toContain('30 ג');
+  });
+
+  it('makes ~2,700 g of dough from the 300 g, salt about 32 g', () => {
+    expect(p.dough.totalDough).toBeGreaterThan(2650);
+    expect(p.dough.totalDough).toBeLessThan(2800);
+    expect(p.dough.levain).toBeCloseTo(300, -1);
+    expect(p.dough.salt).toBeGreaterThan(30);
+    expect(p.dough.salt).toBeLessThan(35);
+  });
+
+  it('has no autolyse, a long knead and rest, and 4 folds', () => {
+    expect(by('autolyse')).toHaveLength(0);
+    expect(by('mix')[0]!.note).toContain('6–8');
+    expect(by('fold')).toHaveLength(4);
+  });
+
+  it('tells you when and how to split, with an alarm, and keeps it in the plan', () => {
+    const d = by('divide')[0]!;
+    expect(d.alarm).toBe(true);
+    expect(d.at).toBeGreaterThan(by('fold')[3]!.at);
+    expect(d.note).toContain('50%–60%');
+    expect(d.note).toContain('2 כיכרות × 1000');
+    expect(d.note).toMatch(/7 לחמניות × 10\d ג'/);
+    expect(d.note).toContain('בלי קמח');
+    expect(d.note).toContain('15–20');
+  });
+
+  it('enriches only the rolls, after the split, about 5.5%, and a 7 or 8 roll choice recomputes', () => {
+    const e = by('enrich')[0]!;
+    expect(e.at).toBeGreaterThan(by('divide')[0]!.at);
+    expect(e.at).toBeLessThan(by('shape')[0]!.at);
+    expect(e.note).toMatch(/\d+ ג' שמן זית/);
+    expect(e.note).toContain('הכיכרות נשארות רזות');
+    const g = Number(/(\d+) ג' שמן/.exec(e.note!)![1]);
+    expect(g).toBeGreaterThan(35);
+    expect(g).toBeLessThan(48);
+    const eight = plan({ ...input, rolls: 8 }, Date.UTC(2026, 10, 12, 8, 0));
+    expect(eight.steps.find((s) => s.kind === 'divide')!.note).toMatch(/8 לחמניות × \d+ ג'/);
+    const silan = plan({ ...input, rollEnrich: 'silan' }, Date.UTC(2026, 10, 12, 8, 0));
+    expect(silan.steps.find((s) => s.kind === 'enrich')!.note).toContain('סילאן');
+    expect(plan({ ...input, rollEnrich: undefined }, 0).steps.some((s) => s.kind === 'enrich')).toBe(false);
+  });
+
+  it('bakes the rolls from the fridge: 230 with steam 12 min, then 210 for 8-10', () => {
+    const b = by('bakeRolls')[0]!;
+    expect(b.note).toContain('230');
+    expect(b.note).toContain('12');
+    expect(b.note).toContain('210');
+    expect(b.note).toContain('שומשום');
+  });
+
+  it('resume: "I just finished the third fold" shows the last fold, then the split', () => {
+    const [, , f3, f4] = by('fold');
+    const steps = resumeAt(p.steps, f4!.id, f3!.at + 5 * 60_000);
+    const open = steps.filter((s) => s.doneAt === undefined);
+    expect(open.slice(0, 2).map((s) => s.kind)).toEqual(['fold', 'divide']);
+    expect(steps.filter((s) => s.kind === 'fold' && s.doneAt !== undefined)).toHaveLength(3);
+  });
+});

@@ -68,6 +68,13 @@ export function PlanScreen() {
         <a class="btn primary" href="#/start" style="display:flex;justify-content:center;text-decoration:none">התחלת ביצוע: איפה אני?</a>
       )}
 
+      {plan.split && plan.input && plan.input.loaves > 0 && plan.input.rolls > 0 && (
+        <section class="card sun" aria-label="החלוקה" data-testid="split">
+          <span class="sub">החלוקה בסוף ההתפחה{steps.find((s) => s.kind === 'divide') ? ` · ${hhmm(steps.find((s) => s.kind === 'divide')!.at)}` : ''}</span>
+          <strong>{plan.split}</strong>
+        </section>
+      )}
+
       {plan.bulk && <TempCard />}
 
       <div class="steps">

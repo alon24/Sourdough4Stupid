@@ -27,6 +27,8 @@ export interface ActivePlan {
   steps: Step[];
   /** what the plan was made from, so the start questionnaire can re-plan */
   input?: PlanInput;
+  /** what to cut at the end of the bulk, always shown in the plan */
+  split?: string;
   amounts: { name: string; grams: number }[];
   build: string;
   /** previous steps, for undo */
@@ -68,6 +70,8 @@ export interface Recipe {
   cold: boolean;
   folds?: number;
   foldGapMin?: number;
+  autolyse?: boolean;
+  rollEnrich?: 'none' | 'oil' | 'silan';
   hydration: number;
   /** flour mix as grams per flour */
   mix: { flour: string; grams: number }[];

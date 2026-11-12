@@ -1,4 +1,4 @@
-import type { Plan, PlanInput } from '../../core/src/index';
+import { splitOf, splitText, type Plan, type PlanInput } from '../../core/src/index';
 import type { ActivePlan } from './store';
 
 /** Turn an engine plan into what the app stores and shows. */
@@ -9,6 +9,7 @@ export function toActive(p: Plan, input: PlanInput, title: string, now = Date.no
     createdAt: now,
     steps: p.steps,
     input,
+    split: input.loaves + input.rolls > 0 ? splitText(splitOf(d.totalDough, input.loaves, input.loafWeight ?? 900, input.rolls)) : undefined,
     build:
       p.chain.length === 0
         ? 'הסטארטר כבר מוכן'
