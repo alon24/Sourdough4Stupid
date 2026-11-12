@@ -39,42 +39,56 @@ export function Recipes() {
   };
   const sorted = [...recipes].sort((a, b) => Number(b.fav) - Number(a.fav));
   const patch = (id: string, p: object) => setState({ recipes: recipes.map((r) => (r.id === id ? { ...r, ...p } : r)) });
+  const [confirmId, setConfirmId] = useState('');
   return (
     <main>
       <div>
         <span class="sub">המתכונים שלי</span>
         <h1>מתכונים</h1>
+        <span class="muted">{recipes.length > 0 ? `${recipes.length} מתכונים שמורים` : 'התבניות שממנן יוצאת כל אפייה'}</span>
       </div>
-      <a class="btn primary" href="#/recipe" style="display:flex;justify-content:center;text-decoration:none">מתכון חדש</a>
-      <section class="card" aria-label="ייצוא וייבוא">
-        <div class="grid2">
-          <button class="btn small" disabled={recipes.length === 0} onClick={() => download('recipes.json', toJson(recipes, customFlours), 'application/json')}>ייצוא JSON</button>
-          <button class="btn small" disabled={recipes.length === 0} onClick={() => download('recipes.csv', '\uFEFF' + toCsv(recipes), 'text/csv;charset=utf-8')}>ייצוא CSV</button>
-        </div>
-        <label class="btn small" style="display:flex;justify-content:center;cursor:pointer">
-          ייבוא מקובץ (JSON או CSV)
-          <input type="file" accept=".json,.csv,application/json,text/csv" aria-label="ייבוא מתכונים" style="position:absolute;opacity:0;width:1px;height:1px" onChange={onFile} />
-        </label>
-        {msg && <span role="status" data-testid="import-msg">{msg}</span>}
-      </section>
+      <a class="btn primary" href="#/recipe">מתכון חדש</a>
       {sorted.length === 0 && <p class="muted">עוד אין מתכונים. מתכון הוא התבנית: כמה, קמחים, הידרציה ותוספות. כל אפייה חדשה יוצאת ממנו.</p>}
       {sorted.map((r) => (
         <section class="card" data-testid="recipe">
           <div class="row">
-            <strong>{r.name}</strong>
-            <button class="btn small" aria-label={r.fav ? `הסר ${r.name} ממועדפים` : `הוסף ${r.name} למועדפים`} onClick={() => patch(r.id, { fav: !r.fav })}>{r.fav ? '★' : '☆'}</button>
+            <div>
+              <strong>{r.name}</strong>
+              <div class="muted">
+                {[r.loaves > 0 && `${r.loaves} לחמים`, r.rolls > 0 && `${r.rolls} לחמניות`, ...r.inclusions].filter(Boolean).join(' · ')}
+              </div>
+            </div>
+            <button class="btn icon quiet" aria-label={r.fav ? `הסר ${r.name} ממועדפים` : `הוסף ${r.name} למועדפים`} onClick={() => patch(r.id, { fav: !r.fav })}>{r.fav ? '★' : '☆'}</button>
           </div>
-          <span class="muted">
-            {[r.loaves > 0 && `${r.loaves} לחמים`, r.rolls > 0 && `${r.rolls} לחמניות`, ...r.inclusions].filter(Boolean).join(' · ')}
-          </span>
+          <a class="btn primary" href={`#/new/${r.id}`}>אפייה חדשה</a>
           <div class="grid2">
-            <a class="btn primary" href={`#/new/${r.id}`} style="display:flex;justify-content:center;text-decoration:none">אפייה חדשה</a>
-            <a class="btn" href={`#/recipe/${r.id}`} style="display:flex;justify-content:center;text-decoration:none;color:inherit">עריכה</a>
+            <a class="btn small" href={`#/recipe/${r.id}`}>עריכה</a>
+            <details class="more">
+              <summary class="btn small">עוד</summary>
+              <div class="menu">
+                <button class="btn small" onClick={() => download(`${r.name}.html`, recipeHtml(r, pct), 'text/html;charset=utf-8')}>דף HTML לשיתוף</button>
+                {confirmId === r.id ? (
+                  <button class="btn small" aria-label={`אישור מחיקה של ${r.name}`} style="border-color:var(--coral);color:var(--coral)" onClick={() => { setConfirmId(''); setState({ recipes: recipes.filter((x) => x.id !== r.id) }); }}>בטוח? מחק</button>
+                ) : (
+                  <button class="btn small" aria-label={`מחק את ${r.name}`} onClick={() => setConfirmId(r.id)}>מחק מתכון</button>
+                )}
+              </div>
+            </details>
           </div>
-          <button class="btn small" onClick={() => download(`${r.name}.html`, recipeHtml(r, pct), 'text/html;charset=utf-8')}>דף HTML לשיתוף</button>
-          <button class="btn small" aria-label={`מחק את ${r.name}`} onClick={() => setState({ recipes: recipes.filter((x) => x.id !== r.id) })}>מחק מתכון</button>
         </section>
       ))}
+      <details class="card tools">
+        <summary>ייבוא וייצוא</summary>
+        <div class="grid2" style="margin-top:8px">
+          <button class="btn small" disabled={recipes.length === 0} onClick={() => download('recipes.json', toJson(recipes, customFlours), 'application/json')}>ייצוא JSON</button>
+          <button class="btn small" disabled={recipes.length === 0} onClick={() => download('recipes.csv', '\uFEFF' + toCsv(recipes), 'text/csv;charset=utf-8')}>ייצוא CSV</button>
+        </div>
+        <label class="btn small" style="cursor:pointer;margin-top:8px">
+          ייבוא מקובץ (JSON או CSV)
+          <input type="file" accept=".json,.csv,application/json,text/csv" aria-label="ייבוא מתכונים" style="position:absolute;opacity:0;width:1px;height:1px" onChange={onFile} />
+        </label>
+      </details>
+      {msg && <span role="status" data-testid="import-msg">{msg}</span>}
     </main>
   );
 }

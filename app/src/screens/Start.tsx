@@ -29,7 +29,7 @@ export function Start() {
     return (
       <main>
         <h1>אין מתכון להתחיל</h1>
-        <a class="btn primary" href="#/new" style="display:flex;justify-content:center;text-decoration:none">מתכון חדש</a>
+        <a class="btn primary" href="#/new">מתכון חדש</a>
       </main>
     );
   }

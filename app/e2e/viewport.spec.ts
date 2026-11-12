@@ -35,3 +35,19 @@ for (const size of SIZES) {
     });
   }
 }
+
+test('button labels are vertically centered on every screen', async ({ page }) => {
+  await page.goto('/#/recipe');
+  await page.getByLabel('שם המתכון').fill('בדיקה');
+  await page.getByRole('button', { name: 'שמור מתכון' }).click();
+  for (const r of ['recipes', '', 'plan', 'start', 'starter', 'calc', 'app']) {
+    await page.goto('/#/' + r);
+    const off = await page.evaluate(() =>
+      [...document.querySelectorAll('.btn')].filter((e) => (e as HTMLElement).offsetParent).map((e) => {
+        const rg = document.createRange(); rg.selectNodeContents(e);
+        const t = rg.getBoundingClientRect(), b = e.getBoundingClientRect();
+        return Math.abs((t.top + t.bottom) / 2 - (b.top + b.bottom) / 2) > 3 ? e.textContent : null;
+      }).filter(Boolean));
+    expect(off, r).toEqual([]);
+  }
+});
