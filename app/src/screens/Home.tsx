@@ -1,3 +1,4 @@
+import { AlarmCheck } from './Alarms';
 import { dayName, hhmm, until } from '../format';
 import { daysSinceFed, setState, useStore } from '../store';
 
@@ -54,6 +55,8 @@ export function Home() {
           <span class="muted">בוחרים כמה לחמים ומתי, והתוכנית מסתדרת לבד.</span>
         </section>
       )}
+
+      <AlarmCheck />
 
       <div class="grid2">
         <a class="btn primary" href="#/new" style="display:flex;align-items:center;justify-content:center;text-decoration:none">אפייה חדשה</a>
