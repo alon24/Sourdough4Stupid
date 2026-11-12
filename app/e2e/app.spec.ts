@@ -588,3 +588,11 @@ test('the split announces itself and each loaf and the rolls are separate branch
   await page.getByRole('button', { name: 'פחות משקל' }).click();
   await expect(page.getByTestId('split')).toContainText('850');
 });
+
+test('download page: direct APK button, copyable link, QR to the page', async ({ page }) => {
+  await page.goto('/#/app');
+  await expect(page.getByRole('link', { name: 'הורדה ישירה (APK)' })).toHaveAttribute('href', /machmetzet\.apk$/);
+  await expect(page.getByTestId('apk-url')).toContainText('machmetzet.apk');
+  await expect(page.getByTestId('copy-link')).toBeVisible();
+  await expect(page.getByTestId('qr')).toHaveAttribute('data-target', /#\/app$/);
+});
