@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  alarmOps, bakeProfile, complete, setAlarm, hydrationAdvice, suggestHydration, dough, doughForTin, feed, peakHours, plan, PRESETS, ratioForWindow, resumeAt,
+  alarmOps, bulkState, doughTempAdvice, roomTempTip, retimeBulk, bakeProfile, buildChain, doughFromStarter, fits, yieldOptions, complete, setAlarm, hydrationAdvice, suggestHydration, dough, doughForTin, feed, peakHours, plan, PRESETS, ratioForWindow, resumeAt,
   revivalFeeds, seedFor, shift, split, waterTemp,
 } from '../src/index.js';
 
@@ -365,5 +365,154 @@ describe('alarm sync', () => {
 
   it('rejects unknown steps', () => {
     expect(() => setAlarm(base(), 'nope', true)).toThrow();
+  });
+});
+
+describe('starter first', () => {
+  const out = Date.UTC(2026, 10, 14, 7, 45);
+
+  it('says how much dough 300 g of starter carries', () => {
+    expect(doughFromStarter(300)).toBeCloseTo(2_558.8, 0);
+    expect(doughFromStarter(0)).toBe(0);
+  });
+
+  it('offers loaf and roll splits that really fit the starter', () => {
+    const opts = yieldOptions(300);
+    expect(opts[0]).toMatchObject({ loaves: 2, rolls: 8 });
+    expect(opts.some((o) => o.loaves === 1 && o.rolls >= 18)).toBe(true);
+    for (const o of opts) {
+      expect(fits(300, o.loaves, o.rolls)).toBe(true);
+      expect(o.left).toBeLessThan(900);
+      expect(o.used + o.left).toBeCloseTo(doughFromStarter(300), 6);
+    }
+    expect(fits(300, 3, 0)).toBe(false);
+  });
+
+  it('builds 300 g from 30 g in two feedings, nothing wasted between them', () => {
+    const chain = buildChain({ have: 30, target: 300, type: 'stiff', hydration: 0.5 });
+    expect(chain).toHaveLength(2);
+    expect(chain[0]!.seed).toBeLessThanOrEqual(30);
+    expect(chain[0]!.total).toBeCloseTo(chain[1]!.seed, 6);
+    expect(chain[1]!.total).toBeGreaterThanOrEqual(300 * 1.1 + 30 - 1e-6);
+  });
+
+  it('needs one feeding when you already have enough', () => {
+    expect(buildChain({ have: 200, target: 300, type: 'stiff', hydration: 0.5 })).toHaveLength(1);
+  });
+
+  it('adds more feedings the less you have, up to a limit', () => {
+    let prev = 0;
+    for (const have of [200, 60, 30, 10, 3, 1]) {
+      const n = buildChain({ have, target: 300, type: 'liquid', hydration: 1 }).length;
+      expect(n).toBeGreaterThanOrEqual(prev);
+      expect(n).toBeLessThanOrEqual(4);
+      prev = n;
+    }
+    expect(() => buildChain({ have: 0, target: 300, type: 'stiff', hydration: 0.5 })).toThrow();
+  });
+
+  it('plans tomorrow-morning bake from 30 g: two timed feedings before mixing', () => {
+    const p = plan({
+      outOfOvenAt: out, loaves: 2, rolls: 6, kneading: 'hand', buildTarget: 300,
+      starter: { type: 'stiff', hydration: 0.5, daysInFridge: 5, haveGrams: 30 },
+    });
+    const feeds = p.steps.filter((s) => s.kind === 'feed');
+    const mix = p.steps.find((s) => s.kind === 'mix')!;
+    expect(feeds).toHaveLength(2);
+    expect(feeds[0]!.title).toContain('האכלה 1 מתוך 2');
+    expect(feeds[0]!.at).toBeLessThan(feeds[1]!.at);
+    expect(feeds[1]!.at).toBeLessThan(mix.at);
+    expect(p.chain).toHaveLength(2);
+    expect(p.chain[1]!.total).toBeGreaterThanOrEqual(300);
+    expect(p.steps[0]!.kind).toBe('feed');
+  });
+
+  it('skips the feeding steps when the starter is already ready', () => {
+    const p = plan({
+      outOfOvenAt: out, loaves: 2, rolls: 6, kneading: 'hand', starterReady: true,
+      starter: { type: 'stiff', hydration: 0.5, daysInFridge: 0 },
+    });
+    expect(p.steps.some((s) => s.kind === 'feed' || s.kind === 'revive')).toBe(false);
+    expect(p.chain).toHaveLength(0);
+    expect(p.steps[0]!.kind).toBe('autolyse');
+  });
+
+  it('resumes in the middle of the feeding chain', () => {
+    const p = plan({
+      outOfOvenAt: out, loaves: 2, rolls: 0, kneading: 'hand', buildTarget: 300,
+      starter: { type: 'stiff', hydration: 0.5, daysInFridge: 3, haveGrams: 30 },
+    });
+    const second = p.steps.filter((s) => s.kind === 'feed')[1]!;
+    const now = second.at + 90 * 60_000;
+    const r = resumeAt(p.steps, second.id, now);
+    expect(r.filter((s) => s.kind === 'feed')[0]!.doneAt).toBeDefined();
+    expect(r.find((s) => s.id === second.id)!.at).toBe(now);
+    expect(r.find((s) => s.kind === 'done')!.at).toBe(out + 90 * 60_000);
+  });
+});
+
+describe('temperature-aware bulk', () => {
+  const t0 = Date.UTC(2026, 10, 13, 8, 0);
+  const o = { startAt: t0, refMin: 270, startC: 24 };
+  const min = (m: number) => t0 + m * 60_000;
+
+  it('counts down at the planned pace when the dough stays at 24°', () => {
+    const s = bulkState([], min(90), o);
+    expect(s.remainingMin).toBeCloseTo(180);
+    expect(s.progress).toBeCloseTo(1 / 3);
+  });
+
+  it('warm dough ferments faster: 30° counts for about 1.7x', () => {
+    const s = bulkState([{ at: min(0) + 1, doughC: 30 }], min(90), o);
+    expect(s.progress).toBeGreaterThan(0.5);
+    expect(s.remainingMin).toBeLessThan(110);
+  });
+
+  it('cold dough leaves more time, and never goes negative', () => {
+    const cold = bulkState([{ at: min(30), doughC: 18 }], min(60), o);
+    expect(cold.remainingMin).toBeGreaterThan(270 - 60);
+    expect(bulkState([], min(1000), o).remainingMin).toBe(0);
+    expect(bulkState([], min(1000), o).progress).toBe(1);
+  });
+
+  it('a rise measurement overrides the estimate', () => {
+    const s = bulkState([{ at: min(120), risePct: 60 }], min(120), o);
+    expect(s.progress).toBeCloseTo(0.8);
+    expect(s.remainingMin).toBeCloseTo(54);
+  });
+
+  it('is monotonic in time at a steady temperature', () => {
+    let prev = Infinity;
+    for (let m = 0; m <= 300; m += 15) {
+      const r = bulkState([{ at: min(1), roomC: 27 }], min(m), o).remainingMin;
+      expect(r).toBeLessThanOrEqual(prev + 1e-9);
+      prev = r;
+    }
+  });
+
+  it('advises on dough temperature', () => {
+    expect(doughTempAdvice(25).level).toBe('ok');
+    expect(doughTempAdvice(21).level).toBe('cold');
+    expect(doughTempAdvice(21).speedPct).toBeLessThan(0);
+    expect(doughTempAdvice(29).level).toBe('hot');
+    expect(doughTempAdvice(29).speedPct).toBeGreaterThan(0);
+    expect(roomTempTip(31)).toContain('מים קרים');
+    expect(roomTempTip(16)).toContain('מים חמים');
+  });
+
+  it('moves the end of the bulk and the oven time when the dough is warm', () => {
+    const out = Date.UTC(2026, 10, 14, 7, 45);
+    const p = plan({
+      outOfOvenAt: out, loaves: 2, rolls: 0, kneading: 'hand',
+      starter: { type: 'stiff', hydration: 0.5, daysInFridge: 2 },
+    });
+    const now = p.bulk.startAt + 60 * 60_000;
+    const warm = retimeBulk(p.steps, p.bulk, [{ at: p.bulk.startAt + 1, doughC: 29 }], now);
+    expect(warm.find((s) => s.kind === 'divide')!.at).toBeLessThan(p.steps.find((s) => s.kind === 'divide')!.at);
+    expect(warm.find((s) => s.kind === 'done')!.at).toBeLessThan(out);
+    const cold = retimeBulk(p.steps, p.bulk, [{ at: p.bulk.startAt + 1, doughC: 19 }], now);
+    expect(cold.find((s) => s.kind === 'done')!.at).toBeGreaterThan(out);
+    expect(retimeBulk(p.steps, p.bulk, [], now)).toBe(p.steps);
+    expect(retimeBulk(p.steps, p.bulk, [], p.bulk.startAt - 1)).toBe(p.steps);
   });
 });

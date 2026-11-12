@@ -1,5 +1,8 @@
 import { useState } from 'preact/hooks';
-import { hydrationAdvice, plan, suggestHydration, type BlendShare, type LoafShape } from '../../../core/src/index';
+import {
+  buildChain, hydrationAdvice, plan, suggestHydration, yieldOptions,
+  type BlendShare, type LoafShape,
+} from '../../../core/src/index';
 import { toLocalInput } from '../format';
 import { daysSinceFed, setState, useStore } from '../store';
 
@@ -45,14 +48,31 @@ export function Wizard() {
     if (hydrationAdvice(BLENDS[blendIdx]!.blend, hydration).level === 'ok') setHydration(suggestHydration(BLENDS[i]!.blend));
   };
 
+  const [mode, setMode] = useState<'pieces' | 'starter'>('pieces');
+  const [want, setWant] = useState(300);
+  const [have, setHave] = useState(30);
+  const [ready, setReady] = useState(false);
   const nothing = loaves + rolls === 0;
+  const starterMode = mode === 'starter';
+  const incl = INCLUSIONS.filter((i) => picked.includes(i.name)).reduce((sum, i) => sum + i.pct, 0);
+  const options = starterMode && want > 0
+    ? yieldOptions(want, { loafWeight: weight, hydration, inclusionPct: incl }).slice(0, 6)
+    : [];
+  const chain = starterMode && !ready && want > 0 && have > 0
+    ? buildChain({ have, target: want, type: starter.type, hydration: starter.hydration, tempC: roomTempC })
+    : [];
+  const chainHours = chain.reduce((sum, c) => sum + c.hours, 0);
   const toggle = (name: string) => setPicked(picked.includes(name) ? picked.filter((x) => x !== name) : [...picked, name]);
 
   const go = () => {
     const inclusions = INCLUSIONS.filter((i) => picked.includes(i.name));
     const p = plan({
       outOfOvenAt: at, loaves, rolls, loafWeight: weight, loafShape: shape,
-      starter: { type: starter.type, hydration: starter.hydration, daysInFridge: daysSinceFed(starter) },
+      starter: {
+        type: starter.type, hydration: starter.hydration, daysInFridge: daysSinceFed(starter),
+        ...(starterMode && !ready ? { haveGrams: have } : {}),
+      },
+      ...(starterMode ? { buildTarget: want, starterReady: ready } : {}),
       roomTempC, kneading, inclusions, coldProof: cold, hydration, blend,
     });
     const parts = [loaves && `${loaves} לחמים`, rolls && `${rolls} לחמניות`, ...picked].filter(Boolean);
@@ -62,7 +82,12 @@ export function Wizard() {
         title: parts.join(' · '),
         createdAt: Date.now(),
         steps: p.steps,
-        build: `${Math.round(p.build.seed)} ג' סטארטר + ${Math.round(p.build.addFlour)} ג' קמח + ${Math.round(p.build.addWater)} ג' מים`,
+        build: p.chain.length === 0
+          ? 'הסטארטר כבר מוכן'
+          : p.chain.map((c, i) => `${p.chain.length > 1 ? `${i + 1}. ` : ''}${Math.round(c.seed)} ג' סטארטר + ${Math.round(c.addFlour)} ג' קמח + ${Math.round(c.addWater)} ג' מים`).join(' · '),
+        kneading,
+        bulk: p.bulk,
+        readings: [],
         amounts: [
           { name: 'קמח', grams: d.addFlour },
           { name: 'מים', grams: d.addWater },
@@ -81,6 +106,47 @@ export function Wizard() {
         <span class="sub">אפייה חדשה</span>
         <h1>מה בא לך?</h1>
       </div>
+
+      <div class="seg" role="group" aria-label="מאיפה מתחילים">
+        <button class={!starterMode ? 'on' : ''} aria-pressed={!starterMode} onClick={() => setMode('pieces')}>מכמה לחמים</button>
+        <button class={starterMode ? 'on' : ''} aria-pressed={starterMode} onClick={() => setMode('starter')}>מכמה סטארטר</button>
+      </div>
+
+      {starterMode && (
+        <section class="card" aria-label="כמה סטארטר">
+          <div class="grid2">
+            <label class="field">
+              רוצה סטארטר (גרם)
+              <input type="number" inputMode="numeric" min="1" value={want} onInput={(e) => setWant(+e.currentTarget.value)} />
+            </label>
+            <label class="field">
+              יש לי עכשיו (גרם)
+              <input type="number" inputMode="numeric" min="1" value={have} disabled={ready} onInput={(e) => setHave(+e.currentTarget.value)} />
+            </label>
+          </div>
+          <label class="row" style="justify-content:flex-start;min-height:48px">
+            <input type="checkbox" checked={ready} onChange={(e) => setReady(e.currentTarget.checked)} style="width:24px;height:24px" />
+            הסטארטר כבר מוכן ועל השיא
+          </label>
+          {chain.length > 0 && (
+            <span data-testid="chain" class="muted">
+              {chain.length === 1 ? 'האכלה אחת' : `${chain.length} האכלות`}, בסך הכול כ־<span class="num">{Math.round(chainHours)}</span> שעות לפני הערבוב.
+            </span>
+          )}
+          <span class="sub">מה יוצא מזה</span>
+          <div class="chips" role="group" aria-label="חלוקה">
+            {options.map((o) => (
+              <button
+                class={`chip ${o.loaves === loaves && o.rolls === rolls ? 'on' : ''}`}
+                aria-pressed={o.loaves === loaves && o.rolls === rolls}
+                onClick={() => { setLoaves(o.loaves); setRolls(o.rolls); }}
+              >
+                {[o.loaves > 0 && `${o.loaves} לחמים`, o.rolls > 0 && `${o.rolls} לחמניות`].filter(Boolean).join(' + ')}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section class="card" style="padding-block:6px">
         <div class="row line">

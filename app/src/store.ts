@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { alarmOps, type AlarmOp, type Step, type StarterType } from '../../core/src/index';
+import { alarmOps, type AlarmOp, type Reading, type Step, type StarterType } from '../../core/src/index';
 
 /** Provided by the Android wrapper (real alarm clock). Absent in the browser. */
 declare global {
@@ -25,6 +25,10 @@ export interface ActivePlan {
   build: string;
   /** previous steps, for undo */
   undo?: Step[];
+  kneading?: 'hand' | 'machine';
+  /** start of the bulk and its length at 24°C, for temperature-aware retiming */
+  bulk?: { startAt: number; refMin: number; startC: number };
+  readings?: Reading[];
 }
 
 export interface State {
