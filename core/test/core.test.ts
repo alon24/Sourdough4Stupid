@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  bakeProfile, complete, dough, doughForTin, feed, peakHours, plan, PRESETS, ratioForWindow, resumeAt,
+  alarmOps, bakeProfile, complete, setAlarm, hydrationAdvice, suggestHydration, dough, doughForTin, feed, peakHours, plan, PRESETS, ratioForWindow, resumeAt,
   revivalFeeds, seedFor, shift, split, waterTemp,
 } from '../src/index.js';
 
@@ -204,14 +204,42 @@ describe('plan', () => {
     expect(only.filter((s) => s.at !== p.steps.find((x) => x.id === s.id)!.at)).toHaveLength(1);
   });
 
-  it('completing a step late pushes the rest', () => {
+  it('completing a step late keeps the following waits at their planned length', () => {
+    const p = plan(input);
+    const auto = p.steps.find((s) => s.kind === 'autolyse')!;
+    const mix = p.steps.find((s) => s.kind === 'mix')!;
+    const plannedWait = mix.at - auto.at;
+    // the autolyse step is marked done 30 minutes late
+    const late = auto.at + 30 * 60_000;
+    const after = complete(p.steps, auto.id, late);
+    const mix2 = after.find((s) => s.id === mix.id)!;
+    expect(after.find((s) => s.id === auto.id)!.doneAt).toBe(late);
+    expect(mix2.at - late).toBe(plannedWait);
+    expect(after.find((s) => s.kind === 'done')!.at).toBe(out + 30 * 60_000);
+    // steps already done never move again
+    const again = shift(after, after.find((s) => s.kind === 'divide')!.id, 15);
+    expect(again.find((s) => s.id === auto.id)!.at).toBe(after.find((s) => s.id === auto.id)!.at);
+  });
+
+  it('completing early leaves the oven time alone', () => {
     const p = plan(input);
     const mix = p.steps.find((s) => s.kind === 'mix')!;
-    const after = complete(p.steps, mix.id, mix.at + 20 * 60_000);
-    expect(after.find((s) => s.id === mix.id)!.doneAt).toBe(mix.at + 20 * 60_000);
-    expect(after.find((s) => s.kind === 'done')!.at).toBe(out + 20 * 60_000);
-    const again = shift(after, after.find((s) => s.kind === 'divide')!.id, 15);
-    expect(again.find((s) => s.id === mix.id)!.at).toBe(mix.at + 20 * 60_000);
+    const after = complete(p.steps, mix.id, mix.at - 20 * 60_000);
+    expect(after.find((s) => s.id === mix.id)!.doneAt).toBe(mix.at - 20 * 60_000);
+    expect(after.find((s) => s.kind === 'done')!.at).toBe(out);
+  });
+
+  it('chains several late steps without drifting', () => {
+    let steps = plan(input).steps;
+    let totalLate = 0;
+    for (const kind of ['autolyse', 'mix', 'divide'] as const) {
+      const s = steps.find((x) => x.kind === kind)!;
+      steps = complete(steps, s.id, s.at + 10 * 60_000);
+      totalLate += 10;
+    }
+    expect(steps.find((s) => s.kind === 'done')!.at).toBe(out + totalLate * 60_000);
+    const times = steps.map((s) => s.at);
+    expect([...times].sort((a, b) => a - b)).toEqual(times);
   });
 
   it('resumes from "I am here"', () => {
@@ -262,5 +290,80 @@ describe('bake profile', () => {
     expect(out - bake.at).toBe(60 * 60_000);
     expect(p.steps.some((s) => s.kind === 'outOfTin')).toBe(true);
     expect(p.dough.totalDough).toBeCloseTo(1200 * 1.02);
+  });
+});
+
+describe('flours and hydration', () => {
+  it('suggests more water for whole wheat and less for spelt', () => {
+    expect(suggestHydration([{ id: 'white', pct: 1 }])).toBe(0.7);
+    expect(suggestHydration([{ id: 'white', pct: 0.8 }, { id: 'whole', pct: 0.2 }])).toBeCloseTo(0.75, 2);
+    expect(suggestHydration([{ id: 'white', pct: 0.6 }, { id: 'spelt', pct: 0.4 }])).toBeCloseTo(0.68, 2);
+  });
+
+  it('rejects shares that do not add up and unknown flours', () => {
+    expect(() => suggestHydration([{ id: 'white', pct: 0.5 }])).toThrow();
+    expect(() => suggestHydration([{ id: 'nope', pct: 1 }])).toThrow();
+  });
+
+  it('judges the hydration you picked against the blend', () => {
+    const blend = [{ id: 'white', pct: 0.8 }, { id: 'whole', pct: 0.2 }];
+    expect(hydrationAdvice(blend, 0.68).level).toBe('low');
+    expect(hydrationAdvice(blend, 0.68).diff).toBeCloseTo(-0.07, 2);
+    expect(hydrationAdvice(blend, 0.76).level).toBe('ok');
+    expect(hydrationAdvice([{ id: 'white', pct: 1 }], 0.8).level).toBe('high');
+  });
+});
+
+describe('plan with a flour blend', () => {
+  it('lists each flour in the dough', () => {
+    const p = plan({
+      outOfOvenAt: Date.UTC(2026, 10, 14, 7, 45), loaves: 2, rolls: 0, kneading: 'hand',
+      starter: { type: 'stiff', hydration: 0.5, daysInFridge: 2 },
+      hydration: 0.78, blend: [{ id: 'white', pct: 0.7 }, { id: 'whole', pct: 0.3 }],
+    });
+    expect(p.dough.flours.map((f) => f.name)).toEqual(['לבן', 'מלא']);
+    expect(p.dough.flours[1]!.grams / p.dough.addFlour).toBeCloseTo(0.3);
+    expect(p.dough.totalWater / p.dough.totalFlour).toBeCloseTo(0.78);
+  });
+});
+
+describe('alarm sync', () => {
+  const out = Date.UTC(2026, 10, 14, 7, 45);
+  const base = () => plan({
+    outOfOvenAt: out, loaves: 1, rolls: 0, kneading: 'hand',
+    starter: { type: 'stiff', hydration: 0.5, daysInFridge: 2 },
+  }).steps;
+
+  it('sets every alarm on a new plan', () => {
+    const steps = base();
+    const ops = alarmOps([], steps);
+    expect(ops.every((o) => o.op === 'set')).toBe(true);
+    expect(ops).toHaveLength(steps.filter((s) => s.alarm).length);
+  });
+
+  it('reschedules exactly the alarms that moved', () => {
+    const steps = base();
+    const mix = steps.find((s) => s.kind === 'mix')!;
+    const moved = shift(steps, mix.id, 20);
+    const ops = alarmOps(steps, moved);
+    const later = steps.filter((s) => s.alarm && s.at >= mix.at).length;
+    expect(ops).toHaveLength(later);
+    expect(ops.every((o) => o.op === 'set')).toBe(true);
+    expect(alarmOps(steps, steps)).toEqual([]);
+  });
+
+  it('cancels alarms switched off or finished, and nothing else', () => {
+    const steps = base();
+    const fold = steps.find((s) => s.kind === 'fold')!;
+    expect(alarmOps(steps, setAlarm(steps, fold.id, false))).toEqual([{ op: 'cancel', id: fold.id }]);
+    const done = complete(steps, fold.id, fold.at);
+    expect(alarmOps(steps, done)).toEqual([{ op: 'cancel', id: fold.id }]);
+    expect(alarmOps(setAlarm(steps, fold.id, false), steps)).toEqual([
+      { op: 'set', id: fold.id, at: fold.at, title: fold.title, ...(fold.note ? { note: fold.note } : {}) },
+    ]);
+  });
+
+  it('rejects unknown steps', () => {
+    expect(() => setAlarm(base(), 'nope', true)).toThrow();
   });
 });

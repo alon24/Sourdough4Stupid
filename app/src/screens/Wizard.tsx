@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { plan, type LoafShape } from '../../../core/src/index';
+import { hydrationAdvice, plan, suggestHydration, type BlendShare, type LoafShape } from '../../../core/src/index';
 import { toLocalInput } from '../format';
 import { daysSinceFed, setState, useStore } from '../store';
 
@@ -9,6 +9,15 @@ const INCLUSIONS = [
   { name: 'צימוקים', pct: 0.18, soak: true },
 ];
 const WEIGHTS = [750, 900, 1000, 1200];
+
+const BLENDS: { label: string; blend: BlendShare[] }[] = [
+  { label: 'לבן', blend: [{ id: 'white', pct: 1 }] },
+  { label: 'טיפו 0', blend: [{ id: 'tipo0', pct: 1 }] },
+  { label: '80% לבן, 20% מלא', blend: [{ id: 'white', pct: 0.8 }, { id: 'whole', pct: 0.2 }] },
+  { label: '50% לבן, 50% מלא', blend: [{ id: 'white', pct: 0.5 }, { id: 'whole', pct: 0.5 }] },
+  { label: '70% לבן, 30% כוסמין', blend: [{ id: 'white', pct: 0.7 }, { id: 'spelt', pct: 0.3 }] },
+  { label: '100% כוסמין', blend: [{ id: 'spelt', pct: 1 }] },
+];
 
 function defaultTarget(): number {
   const d = new Date(Date.now() + 2 * 86_400_000);
@@ -26,6 +35,15 @@ export function Wizard() {
   const [picked, setPicked] = useState<string[]>([]);
   const [kneading, setKneading] = useState<'hand' | 'machine'>('hand');
   const [cold, setCold] = useState(true);
+  const [blendIdx, setBlendIdx] = useState(0);
+  const [hydration, setHydration] = useState(0.72);
+  const blend = BLENDS[blendIdx]!.blend;
+  const advice = hydrationAdvice(blend, hydration);
+  const pickBlend = (i: number) => {
+    setBlendIdx(i);
+    // follow the suggestion only while the hydration is still the comfortable one for the old blend
+    if (hydrationAdvice(BLENDS[blendIdx]!.blend, hydration).level === 'ok') setHydration(suggestHydration(BLENDS[i]!.blend));
+  };
 
   const nothing = loaves + rolls === 0;
   const toggle = (name: string) => setPicked(picked.includes(name) ? picked.filter((x) => x !== name) : [...picked, name]);
@@ -35,7 +53,7 @@ export function Wizard() {
     const p = plan({
       outOfOvenAt: at, loaves, rolls, loafWeight: weight, loafShape: shape,
       starter: { type: starter.type, hydration: starter.hydration, daysInFridge: daysSinceFed(starter) },
-      roomTempC, kneading, inclusions, coldProof: cold,
+      roomTempC, kneading, inclusions, coldProof: cold, hydration, blend,
     });
     const parts = [loaves && `${loaves} לחמים`, rolls && `${rolls} לחמניות`, ...picked].filter(Boolean);
     const d = p.dough;
@@ -106,6 +124,39 @@ export function Wizard() {
           ))}
         </div>
       </div>
+
+      <label class="field">
+        קמח
+        <select value={blendIdx} onChange={(e) => pickBlend(+e.currentTarget.value)}>
+          {BLENDS.map((b, i) => (
+            <option value={i}>{b.label}</option>
+          ))}
+        </select>
+      </label>
+      <section class="card" aria-label="הידרציה">
+        <div class="row">
+          <strong>הידרציה</strong>
+          <div class="stepper">
+            <button aria-label="פחות הידרציה" onClick={() => setHydration(Math.max(0.5, Math.round((hydration - 0.01) * 100) / 100))}>−</button>
+            <output data-testid="hydration" aria-label="הידרציה באחוזים"><span class="num">{Math.round(hydration * 100)}%</span></output>
+            <button class="plus" aria-label="עוד הידרציה" onClick={() => setHydration(Math.min(0.95, Math.round((hydration + 0.01) * 100) / 100))}>+</button>
+          </div>
+        </div>
+        {advice.level === 'ok' ? (
+          <span class="muted">מתאים לתערובת הזו.</span>
+        ) : (
+          <>
+            <span data-testid="hydration-tip">
+              {advice.level === 'low'
+                ? `לתערובת הזו מומלץ בערך ${Math.round(advice.suggested * 100)}%. ב־${Math.round(hydration * 100)}% הבצק יצא יבש וצפוף: נוח לעבוד איתו, אבל הפירור סגור יותר. אפשר להוסיף מים בהדרגה בזמן הלישה.`
+                : `לתערובת הזו מומלץ בערך ${Math.round(advice.suggested * 100)}%. ב־${Math.round(hydration * 100)}% הבצק יהיה דביק ורך: עדיף ידיים רטובות, קיפולים עדינים ועיצוב מהיר, ואולי תבנית.`}
+            </span>
+            <button class="btn small" onClick={() => setHydration(advice.suggested)}>
+              קח את ההצעה: <span class="num">{Math.round(advice.suggested * 100)}%</span>
+            </button>
+          </>
+        )}
+      </section>
 
       <div class="seg" role="group" aria-label="סוג לישה">
         <button class={kneading === 'hand' ? 'on' : ''} aria-pressed={kneading === 'hand'} onClick={() => setKneading('hand')}>לישה ידנית</button>
