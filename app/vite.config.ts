@@ -9,7 +9,11 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg'],
-      workbox: { globPatterns: ['**/*.{js,css,html,svg,png,woff2}'] },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // the APK is a plain file: never answer its navigation with the app shell
+        navigateFallbackDenylist: [/\.apk$/],
+      },
       manifest: {
         name: 'מחמצת לעד',
         short_name: 'מחמצת',
