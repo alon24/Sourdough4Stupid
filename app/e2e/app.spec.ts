@@ -596,3 +596,8 @@ test('download page: direct APK button, copyable link, QR to the page', async ({
   await expect(page.getByTestId('copy-link')).toBeVisible();
   await expect(page.getByTestId('qr')).toHaveAttribute('data-target', /#\/app$/);
 });
+
+test('the home screen shows the app version', async ({ page }) => {
+  await page.goto('/#/');
+  await expect(page.getByTestId('version')).toContainText(/^v\d+\.\d+\.\d+/);
+});

@@ -1,8 +1,14 @@
 import preact from '@preact/preset-vite';
 import { defineConfig } from 'vite';
+import { execSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+
+const sha = (process.env.GITHUB_SHA ?? (() => { try { return execSync('git rev-parse HEAD').toString(); } catch { return 'dev'; } })()).slice(0, 7);
+const version = `${JSON.parse(readFileSync('./package.json', 'utf8')).version} · ${sha}`;
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
+  define: { __APP_VERSION__: JSON.stringify(version) },
   base: './',
   plugins: [
     preact(),
