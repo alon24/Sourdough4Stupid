@@ -14,9 +14,15 @@ function qrSvg(text: string): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${s} ${s}" shape-rendering="crispEdges" role="img" aria-label="ברקוד להורדת האפליקציה"><rect width="${s}" height="${s}" fill="#fff"/><path d="${d}" fill="#2B1D3A"/></svg>`;
 }
 
-const svg = qrSvg(APP_URL);
+const SITE = 'https://alon24.github.io/Sourdough4Stupid/';
+/** The QR points at this download page, never at the file: opening the file URL in a tab makes every refresh download it again. */
+export function pageUrl(): string {
+  const here = typeof location !== 'undefined' && /^https?:$/.test(location.protocol) && !/^(localhost|127\.)/.test(location.hostname);
+  return `${here ? location.href.split('#')[0] : SITE}#/app`;
+}
 
 export function Download() {
+  const target = pageUrl();
   return (
     <main class="screen">
       <a href="#/" style="font-weight:700;color:inherit;text-decoration:none">‹ חזרה</a>
@@ -24,7 +30,7 @@ export function Download() {
       <section class="card">
         <span class="muted">עם האפליקציה השעונים המעוררים מצלצלים באמת, גם כשהמסך נעול.</span>
         <a class="btn primary" href={APP_URL} download="machmetzet.apk" rel="noopener" data-testid="apk-link" style="display:flex;justify-content:center;text-decoration:none">הורדת האפליקציה (APK)</a>
-        <div data-testid="qr" style="width:220px;max-width:100%;margin:8px auto" dangerouslySetInnerHTML={{ __html: svg }} />
+        <div data-testid="qr" data-target={target} style="width:220px;max-width:100%;margin:8px auto" dangerouslySetInnerHTML={{ __html: qrSvg(target) }} />
         <span class="muted">סרקו מהטלפון להורדה.</span>
         <details open>
           <summary>איך מתקינים</summary>

@@ -484,3 +484,21 @@ test('autolyse can be switched off and on in a running bake, alarms follow, and 
   await page.getByRole('link', { name: 'מתכונים' }).click();
   await expect(page.getByTestId('recipe')).toHaveCount(2);
 });
+
+test('refreshing any screen never fetches or navigates to the APK; the QR points at the page, not the file', async ({ page }) => {
+  const apk: string[] = [];
+  page.on('request', (r) => { if (/\.apk(\?|$)/.test(r.url())) apk.push(r.url()); });
+  page.on('download', (d) => apk.push(`download:${d.suggestedFilename()}`));
+  for (const route of ['#/', '#/plan', '#/new', '#/recipes', '#/recipe', '#/calc', '#/help', '#/starter', '#/start', '#/app']) {
+    await page.goto(`/${route}`);
+    await page.reload();
+    await page.reload();
+    await expect(page.locator('main')).toBeVisible();
+    expect(page.url()).not.toMatch(/\.apk/);
+  }
+  await page.goto('/#/app');
+  const target = await page.getByTestId('qr').getAttribute('data-target');
+  expect(target).toMatch(/#\/app$/);
+  expect(target).not.toMatch(/\.apk/);
+  expect(apk, 'no APK request or download happened on reload').toEqual([]);
+});
