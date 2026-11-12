@@ -1,0 +1,44 @@
+name: Android APK
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths: ['app/**', 'core/**', '.github/workflows/android.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - run: npm ci
+      - run: npm run build
+      - run: npx cap sync android
+      - run: ./gradlew assembleDebug --no-daemon
+        working-directory: app/android
+      - uses: actions/upload-artifact@v4
+        with:
+          name: machmetzet-apk
+          path: app/android/app/build/outputs/apk/debug/app-debug.apk
+      - name: Publish latest APK
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        working-directory: .
+        run: |
+          cp app/android/app/build/outputs/apk/debug/app-debug.apk machmetzet.apk
+          gh release delete latest-apk --yes --cleanup-tag || true
+          gh release create latest-apk machmetzet.apk --prerelease --title "Latest Android build" --notes "Built from ${GITHUB_SHA::7}. Install on the phone to get real alarm-clock alarms."
