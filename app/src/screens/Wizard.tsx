@@ -1,17 +1,14 @@
 import { useState } from 'preact/hooks';
 import {
   buildChain, hydrationAdvice, plan, suggestHydration, yieldOptions,
-  type BlendShare, type LoafShape,
+  type BlendShare, type LoafShape, type PlanInput,
 } from '../../../core/src/index';
+import { toActive } from '../activePlan';
 import { FlourMix, mixToBlend, type MixItem } from './FlourMix';
 import { toLocalInput } from '../format';
-import { daysSinceFed, setState, useStore } from '../store';
+import { InclusionsEditor } from './InclusionsEditor';
+import { daysSinceFed, setState, useStore, type Recipe } from '../store';
 
-const INCLUSIONS = [
-  { name: 'זיתים', pct: 0.18, soak: false },
-  { name: 'חמוציות', pct: 0.18, soak: true },
-  { name: 'צימוקים', pct: 0.18, soak: true },
-];
 const WEIGHTS = [750, 900, 1000, 1200];
 
 const BLENDS: { label: string; blend: BlendShare[] }[] = [
@@ -29,19 +26,22 @@ function defaultTarget(): number {
   return d.getTime();
 }
 
-export function Wizard() {
-  const { starter, roomTempC } = useStore();
-  const [loaves, setLoaves] = useState(2);
-  const [rolls, setRolls] = useState(0);
-  const [weight, setWeight] = useState(900);
-  const [shape, setShape] = useState<LoafShape>('free');
+export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; recipeId?: string }) {
+  const { starter, roomTempC, inclusions: INCLUSIONS, recipes } = useStore();
+  const isRecipe = kind === 'recipe';
+  const initial = recipes.find((r) => r.id === recipeId);
+  const [name, setName] = useState(initial?.name ?? '');
+  const [loaves, setLoaves] = useState(initial?.loaves ?? 2);
+  const [rolls, setRolls] = useState(initial?.rolls ?? 0);
+  const [weight, setWeight] = useState(initial?.weight ?? 900);
+  const [shape, setShape] = useState<LoafShape>(initial?.shape ?? 'free');
   const [at, setAt] = useState(defaultTarget());
-  const [picked, setPicked] = useState<string[]>([]);
-  const [kneading, setKneading] = useState<'hand' | 'machine'>('hand');
-  const [cold, setCold] = useState(true);
+  const [picked, setPicked] = useState<string[]>(initial?.inclusions ?? []);
+  const [kneading, setKneading] = useState<'hand' | 'machine'>(initial?.kneading ?? 'hand');
+  const [cold, setCold] = useState(initial?.cold ?? true);
   const [blendIdx, setBlendIdx] = useState(0);
-  const [hydration, setHydration] = useState(0.72);
-  const [mix, setMix] = useState<MixItem[] | null>(null);
+  const [hydration, setHydration] = useState(initial?.hydration ?? 0.72);
+  const [mix, setMix] = useState<MixItem[] | null>(initial?.mix ?? null);
   const blend = mix ? mixToBlend(mix) : BLENDS[blendIdx]!.blend;
   const advice = hydrationAdvice(blend, hydration);
   // follow the suggestion only while the hydration is still the comfortable one for the old blend
@@ -75,9 +75,41 @@ export function Wizard() {
   const chainHours = chain.reduce((sum, c) => sum + c.hours, 0);
   const toggle = (name: string) => setPicked(picked.includes(name) ? picked.filter((x) => x !== name) : [...picked, name]);
 
-  const go = () => {
+  const load = (r: Recipe) => {
+    setLoaves(r.loaves); setRolls(r.rolls); setWeight(r.weight); setShape(r.shape); setPicked(r.inclusions);
+    setKneading(r.kneading); setCold(r.cold); setHydration(r.hydration); setMix(r.mix);
+  };
+  const saveRecipe = () => {
+    const items = mix ?? blend.map((b) => ({ flour: b.id, grams: Math.round(b.pct * 1000) }));
+    const r: Recipe = {
+      id: initial?.id ?? `r${Date.now()}`, name: name.trim(), fav: initial?.fav ?? false,
+      loaves, rolls, weight, shape, inclusions: picked, kneading, cold, hydration, mix: items,
+    };
+    setState({ recipes: initial ? recipes.map((x) => (x.id === r.id ? r : x)) : [...recipes, r] });
+    location.hash = '#/recipes';
+  };
+
+  const currentItems = () => mix ?? blend.map((b) => ({ flour: b.id, grams: Math.round(b.pct * 1000) }));
+  const changedFromRecipe = (): boolean => {
+    if (!initial) return false;
+    const norm = (r: { loaves: number; rolls: number; weight: number; shape: string; inclusions: string[]; kneading: string; cold: boolean; hydration: number; mix: object }) => JSON.stringify([r.loaves, r.rolls, r.weight, r.shape, [...r.inclusions].sort(), r.kneading, r.cold, r.hydration, r.mix]);
+    return norm(initial) !== norm({ loaves, rolls, weight, shape, inclusions: picked, kneading, cold, hydration, mix: currentItems() });
+  };
+  const [askDerive, setAskDerive] = useState(false);
+  const go = () => (changedFromRecipe() ? setAskDerive(true) : doGo());
+  const derive = () => {
+    if (!initial) return;
+    const r: Recipe = {
+      id: `r${Date.now()}`, name: `${initial.name} (גרסה)`, fav: false, derivedFrom: initial.id,
+      loaves, rolls, weight, shape, inclusions: picked, kneading, cold, hydration, mix: currentItems(),
+    };
+    setState({ recipes: [...recipes, r] });
+    doGo();
+  };
+
+  const doGo = () => {
     const inclusions = INCLUSIONS.filter((i) => picked.includes(i.name));
-    const p = plan({
+    const input: PlanInput = {
       outOfOvenAt: at, loaves, rolls, loafWeight: weight, loafShape: shape,
       starter: {
         type: starter.type, hydration: starter.hydration, daysInFridge: daysSinceFed(starter),
@@ -85,38 +117,35 @@ export function Wizard() {
       },
       ...(starterMode ? { buildTarget: want, starterReady: ready } : {}),
       roomTempC, kneading, inclusions, coldProof: cold, hydration, blend,
-    });
+    };
     const parts = [loaves && `${loaves} לחמים`, rolls && `${rolls} לחמניות`, ...picked].filter(Boolean);
-    const d = p.dough;
-    setState({
-      plan: {
-        title: parts.join(' · '),
-        createdAt: Date.now(),
-        steps: p.steps,
-        build: p.chain.length === 0
-          ? 'הסטארטר כבר מוכן'
-          : p.chain.map((c, i) => `${p.chain.length > 1 ? `${i + 1}. ` : ''}${Math.round(c.seed)} ג' סטארטר + ${Math.round(c.addFlour)} ג' קמח + ${Math.round(c.addWater)} ג' מים`).join(' · '),
-        kneading,
-        bulk: p.bulk,
-        readings: [],
-        amounts: [
-          { name: 'קמח', grams: d.addFlour },
-          { name: 'מים', grams: d.addWater },
-          { name: 'מחמצת', grams: d.levain },
-          { name: 'מלח', grams: d.salt },
-          ...d.inclusions,
-        ],
-      },
-    });
+    setState({ plan: toActive(plan(input), input, parts.join(' · ')) });
     location.hash = '#/plan';
   };
 
   return (
     <main>
       <div>
-        <span class="sub">אפייה חדשה</span>
-        <h1>מה בא לך?</h1>
+        <span class="sub">{isRecipe ? 'מתכון' : 'אפייה חדשה'}</span>
+        <h1>{isRecipe ? (initial ? 'עריכת מתכון' : 'מתכון חדש') : 'מה בא לך?'}</h1>
       </div>
+
+      {isRecipe ? (
+        <label class="field">
+          שם המתכון
+          <input value={name} placeholder="למשל: הלחם של שבת" onInput={(e) => setName(e.currentTarget.value)} />
+        </label>
+      ) : (
+        recipes.length > 0 && (
+          <label class="field">
+            מתכון
+            <select aria-label="בחירת מתכון" value={recipeId ?? ''} onChange={(e) => (location.hash = e.currentTarget.value ? `#/new/${e.currentTarget.value}` : '#/new')}>
+              <option value="">מאפס</option>
+              {recipes.map((r) => <option value={r.id}>{r.name}</option>)}
+            </select>
+          </label>
+        )
+      )}
 
       <div class="seg" role="group" aria-label="מאיפה מתחילים">
         <button class={!starterMode ? 'on' : ''} aria-pressed={!starterMode} onClick={() => setMode('pieces')}>מכמה לחמים</button>
@@ -186,10 +215,10 @@ export function Wizard() {
         </div>
       </section>
 
-      <label class="field">
+      {!isRecipe && <label class="field">
         יוצא מהתנור
         <input type="datetime-local" value={toLocalInput(at)} onInput={(e) => e.currentTarget.value && setAt(new Date(e.currentTarget.value).getTime())} />
-      </label>
+      </label>}
 
       <div>
         <span class="sub">תוספות</span>
@@ -200,6 +229,7 @@ export function Wizard() {
             </button>
           ))}
         </div>
+        <InclusionsEditor />
       </div>
 
       <label class="field">
@@ -249,9 +279,24 @@ export function Wizard() {
         <button class={!cold ? 'on' : ''} aria-pressed={!cold} onClick={() => setCold(false)}>אפייה באותו יום</button>
       </div>
 
-      <button class="btn primary" style="margin-top:auto;font-size:19px" disabled={nothing} onClick={go}>
-        {nothing ? 'צריך לבחור לפחות לחם אחד' : 'יאללה, תתכנן לי'}
-      </button>
+      {askDerive && (
+        <section class="card" role="dialog" aria-label="שינית את המתכון">
+          <strong>שינית משהו מהמתכון "{initial?.name}". לשמור כמתכון חדש?</strong>
+          <div class="grid2">
+            <button class="btn primary" onClick={derive}>כן, מתכון חדש</button>
+            <button class="btn" onClick={doGo}>לא, רק הפעם</button>
+          </div>
+        </section>
+      )}
+      {isRecipe ? (
+        <button class="btn primary" style="margin-top:auto;font-size:19px" disabled={nothing || !name.trim()} onClick={saveRecipe}>
+          {!name.trim() ? 'צריך שם למתכון' : 'שמור מתכון'}
+        </button>
+      ) : (
+        <button class="btn primary" style="margin-top:auto;font-size:19px" disabled={nothing} onClick={go}>
+          {nothing ? 'צריך לבחור לפחות לחם אחד' : 'יאללה, תתכנן לי'}
+        </button>
+      )}
     </main>
   );
 }

@@ -64,6 +64,10 @@ export function PlanScreen() {
         <span class="muted">האכלת הסטארטר: {plan.build}</span>
       </details>
 
+      {plan.input && !steps.some((s) => s.doneAt !== undefined) && (
+        <a class="btn primary" href="#/start" style="display:flex;justify-content:center;text-decoration:none">התחלת ביצוע: איפה אני?</a>
+      )}
+
       {plan.bulk && <TempCard />}
 
       <div class="steps">
