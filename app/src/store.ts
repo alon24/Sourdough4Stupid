@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { alarmOps, registerFlours, type FlourInfo, type AlarmOp, type Reading, type Step, type StarterType } from '../../core/src/index';
+import { alarmOps, type PlanInput, registerFlours, type FlourInfo, type AlarmOp, type Reading, type Step, type StarterType } from '../../core/src/index';
 
 /** Provided by the Android wrapper (real alarm clock). Absent in the browser. */
 declare global {
@@ -21,6 +21,8 @@ export interface ActivePlan {
   title: string;
   createdAt: number;
   steps: Step[];
+  /** what the plan was made from, so the start questionnaire can re-plan */
+  input?: PlanInput;
   amounts: { name: string; grams: number }[];
   build: string;
   /** previous steps, for undo */

@@ -286,3 +286,28 @@ test('a custom flour is remembered, usable in the mix and deletable', async ({ p
   await page.getByRole('button', { name: 'מחק את דורום' }).click();
   await expect(page.getByRole('combobox', { name: 'סוג קמח' }).first().locator('option', { hasText: 'דורום' })).toHaveCount(0);
 });
+
+test('start questionnaire: starter state, scale-up, and the step you are at', async ({ page }) => {
+  await page.goto('/#/new');
+  await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
+  await page.getByRole('link', { name: /התחלת ביצוע/ }).click();
+  await expect(page.getByRole('button', { name: /עוד לא התחלתי/ })).toHaveCount(0);
+  await page.getByRole('button', { name: 'במקרר' }).click();
+  await page.getByRole('button', { name: 'כן, צריך יותר' }).click();
+  await page.getByRole('button', { name: '30', exact: true }).click();
+  const stepButtons = page.getByRole('heading', { name: 'באיזה שלב אתה?' }).locator('xpath=../div/button');
+  expect(await stepButtons.count()).toBeGreaterThan(4);
+  await stepButtons.nth(3).click();
+  await expect(page).toHaveURL(/#\/plan$/);
+  expect(await page.locator('.step.done').count()).toBeGreaterThanOrEqual(2);
+});
+
+test('start questionnaire: an active starter means no feeding steps', async ({ page }) => {
+  await page.goto('/#/new');
+  await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
+  await page.getByRole('link', { name: /התחלת ביצוע/ }).click();
+  await page.getByRole('button', { name: 'פעיל ובועבע' }).click();
+  await expect(page.getByRole('button', { name: /להאכיל סטארטר/ })).toHaveCount(0);
+  await page.getByRole('button', { name: /עוד לא התחלתי/ }).click();
+  await expect(page.getByRole('button', { name: /להאכיל סטארטר/ })).toHaveCount(0);
+});

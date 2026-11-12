@@ -3,6 +3,7 @@ import { Calc } from './screens/Calc';
 import { Help } from './screens/Help';
 import { Home } from './screens/Home';
 import { PlanScreen } from './screens/Plan';
+import { Start } from './screens/Start';
 import { Wizard } from './screens/Wizard';
 import { Reminder } from './Reminder';
 
@@ -23,7 +24,7 @@ export function App() {
   }, []);
 
   const screen =
-    hash === '#/plan' ? <PlanScreen /> : hash === '#/new' ? <Wizard /> : hash === '#/calc' ? <Calc /> : hash === '#/help' ? <Help /> : <Home />;
+    hash === '#/plan' ? <PlanScreen /> : hash === '#/new' ? <Wizard /> : hash === '#/start' ? <Start /> : hash === '#/calc' ? <Calc /> : hash === '#/help' ? <Help /> : <Home />;
 
   return (
     <>

@@ -1,8 +1,9 @@
 import { useState } from 'preact/hooks';
 import {
   buildChain, hydrationAdvice, plan, suggestHydration, yieldOptions,
-  type BlendShare, type LoafShape,
+  type BlendShare, type LoafShape, type PlanInput,
 } from '../../../core/src/index';
+import { toActive } from '../activePlan';
 import { FlourMix, mixToBlend, type MixItem } from './FlourMix';
 import { toLocalInput } from '../format';
 import { daysSinceFed, setState, useStore } from '../store';
@@ -77,7 +78,7 @@ export function Wizard() {
 
   const go = () => {
     const inclusions = INCLUSIONS.filter((i) => picked.includes(i.name));
-    const p = plan({
+    const input: PlanInput = {
       outOfOvenAt: at, loaves, rolls, loafWeight: weight, loafShape: shape,
       starter: {
         type: starter.type, hydration: starter.hydration, daysInFridge: daysSinceFed(starter),
@@ -85,29 +86,9 @@ export function Wizard() {
       },
       ...(starterMode ? { buildTarget: want, starterReady: ready } : {}),
       roomTempC, kneading, inclusions, coldProof: cold, hydration, blend,
-    });
+    };
     const parts = [loaves && `${loaves} לחמים`, rolls && `${rolls} לחמניות`, ...picked].filter(Boolean);
-    const d = p.dough;
-    setState({
-      plan: {
-        title: parts.join(' · '),
-        createdAt: Date.now(),
-        steps: p.steps,
-        build: p.chain.length === 0
-          ? 'הסטארטר כבר מוכן'
-          : p.chain.map((c, i) => `${p.chain.length > 1 ? `${i + 1}. ` : ''}${Math.round(c.seed)} ג' סטארטר + ${Math.round(c.addFlour)} ג' קמח + ${Math.round(c.addWater)} ג' מים`).join(' · '),
-        kneading,
-        bulk: p.bulk,
-        readings: [],
-        amounts: [
-          { name: 'קמח', grams: d.addFlour },
-          { name: 'מים', grams: d.addWater },
-          { name: 'מחמצת', grams: d.levain },
-          { name: 'מלח', grams: d.salt },
-          ...d.inclusions,
-        ],
-      },
-    });
+    setState({ plan: toActive(plan(input), input, parts.join(' · ')) });
     location.hash = '#/plan';
   };
 
