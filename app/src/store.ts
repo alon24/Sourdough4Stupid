@@ -163,6 +163,21 @@ export function setState(patch: Partial<State>): void {
 
 export const getState = (): State => state;
 
+/** for modules outside the UI (sync) */
+export function subscribe(l: () => void): () => void {
+  listeners.add(l);
+  return () => void listeners.delete(l);
+}
+
+/** true when this device has saved user data before (used so a fresh install never overrides synced data) */
+export const hadSavedState = (): boolean => {
+  try {
+    return localStorage.getItem(KEY) !== null;
+  } catch {
+    return false;
+  }
+};
+
 export function useStore(): State {
   const [, tick] = useState(0);
   useEffect(() => {

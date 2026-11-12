@@ -618,3 +618,9 @@ test('plan has visible temperature and photo buttons: target shown, fridge advic
   await page.reload();
   await expect(page.getByTestId('photos').locator('img')).toBeVisible();
 });
+
+test('sync screen opens and explains the missing Google id', async ({ page }) => {
+  await page.goto('/#/sync');
+  await expect(page.getByRole('heading', { name: 'סנכרון עם Google Drive' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'התחברות עם Google' })).toBeDisabled();
+});
