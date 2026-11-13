@@ -40,7 +40,7 @@ export function FlourMix({ items, onChange, onSaved, onValidity }: { items: MixI
   const [draft, setDraft] = useState<Record<string, string>>({});
   const flours = allFlours();
   const total = sum(items);
-  const whole = mixIsWhole(items, base);
+  const whole = mixIsWhole(items, base) && new Set(items.map((i) => i.flour)).size === items.length;
   const pctOf = (g: number) => (base > 0 ? (g / base) * 100 : 0);
   const pctTotal = r1(pctOf(total));
   const emit = (next: MixItem[]) => onChange(next);
@@ -62,7 +62,15 @@ export function FlourMix({ items, onChange, onSaved, onValidity }: { items: MixI
     setBase(nb);
   };
   const blur = (key: string) => setDraft((d) => { const { [key]: _, ...rest } = d; return rest; });
-  const add = () => emit([...items, { flour: 'white', grams: Math.max(0, base - total) }]);
+  const used = new Set(items.map((i) => i.flour));
+  const nextFlour = flours.find((f) => !used.has(f.id));
+  const dupes = items.length !== used.size;
+  const add = () => nextFlour && emit([...items, { flour: nextFlour.id, grams: Math.max(0, base - total) }]);
+  const mergeDupes = () => {
+    const m = new Map<string, number>();
+    for (const i of items) m.set(i.flour, (m.get(i.flour) ?? 0) + i.grams);
+    emit([...m].map(([flour, grams]) => ({ flour, grams })));
+  };
   const savePreset = () => {
     const n = name.trim();
     if (!n) return;
@@ -93,7 +101,7 @@ export function FlourMix({ items, onChange, onSaved, onValidity }: { items: MixI
       {items.map((it, k) => (
         <div class="row" data-testid="mix-row" style="flex-wrap:wrap;gap:6px">
           <select aria-label="סוג קמח" value={it.flour} onChange={(e) => set(k, { flour: e.currentTarget.value })}>
-            {flours.map((f) => <option value={f.id}>{f.name}</option>)}
+            {flours.map((f) => <option value={f.id} disabled={f.id !== it.flour && items.some((o, j) => j !== k && o.flour === f.id)}>{f.name}</option>)}
           </select>
           <input aria-label="אחוז" type="text" inputMode="decimal" style="width:64px" value={draft[`p${k}`] ?? r1(pctOf(it.grams))} onInput={(e) => setPct(k, e.currentTarget.value)} onBlur={() => blur(`p${k}`)} />
           <span class="muted">%</span>
@@ -106,8 +114,14 @@ export function FlourMix({ items, onChange, onSaved, onValidity }: { items: MixI
         <span data-testid="mix-status" role="status" style={`font-weight:700;color:${whole ? 'inherit' : 'var(--coral)'}`}>
           {whole ? 'סה"כ 100% ✓' : pctTotal < 100 ? <>סה"כ <span class="num" data-testid="mix-pct">{pctTotal}</span>%, חסרים <span class="num" data-testid="mix-left">{r1(100 - pctTotal)}</span>%</> : <>סה"כ <span class="num" data-testid="mix-pct">{pctTotal}</span>%, יותר מדי ב־<span class="num" data-testid="mix-left">{r1(pctTotal - 100)}</span>%</>}
         </span>
-        <button class="btn small" onClick={add}>+ הוסף קמח</button>
+        <button class="btn small" onClick={add} disabled={!nextFlour}>+ הוסף קמח</button>
       </div>
+      {dupes && (
+        <div role="alert" data-testid="mix-dupes" class="warn">
+          <span>אותו קמח מופיע יותר מפעם אחת. קמח יכול להופיע רק פעם אחת בתערובת.</span>
+          <button class="btn small" onClick={mergeDupes}>אחד את השורות</button>
+        </div>
+      )}
       <span class="muted">סה"כ <span class="num" data-testid="mix-total">{total}</span> ג'. אפשר לערוך אחוזים או גרמים, והשני מתעדכן. לשמירה צריך 100%.</span>
       <div class="row">
         <input aria-label="שם לתמהיל" placeholder="שם לשמירה" value={name} onInput={(e) => setName(e.currentTarget.value)} />
