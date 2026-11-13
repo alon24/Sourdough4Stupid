@@ -37,7 +37,8 @@ test('walkthrough with screenshots: the reference bake end to end on a phone vie
   await page.getByRole('button', { name: 'שמור תמהיל' }).click();
   await expect(page.locator('label.field', { hasText: /^קמח/ }).locator('select').first().locator('option:checked')).toHaveText('לבן וטיפו');
   await shot(page, '03-wizard');
-  await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
+  const feed = page.getByRole('button', { name: /צריך להגדיל את הסטארטר/ });
+  if (await feed.count()) await feed.click(); else await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
 
   // plan
   await expect(page.getByTestId('split')).toContainText('2 כיכרות × 1000');

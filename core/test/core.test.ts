@@ -821,3 +821,40 @@ describe('switching during the bake', () => {
     expect(back.steps.find((s) => s.kind === 'bake')!.at).toBe(bakeCold);
   });
 });
+
+import { combineCheck, mergeItems, scaleItems } from '../src/index';
+
+describe('scaling and combining', () => {
+  const T = (id: string) => DEFAULT_ITEM_TYPES.find((t) => t.id === id)!;
+  it('multiplies a base batch, quantities and starter included', () => {
+    const base = [itemFrom(T('loaf'), 1), itemFrom(T('rolls'), 6)];
+    const x2 = scaleItems(base, 2);
+    expect(x2.map((i) => i.count)).toEqual([2, 12]);
+    expect(starterNeed(x2).grams).toBeCloseTo(2 * starterNeed(base).grams, 6);
+    expect(base[0]!.count).toBe(1);
+  });
+  it('merges 2 + 1 loaves into 3', () => {
+    const m = mergeItems([scaleItems([itemFrom(T('loaf'), 1)], 2), [itemFrom(T('loaf'), 1)], [itemFrom(T('rolls'), 6)]]);
+    expect(m.map((i) => [i.type, i.count])).toEqual([['loaf', 3], ['rolls', 6]]);
+  });
+  it('bread and pizza share a dough, olive oil goes to the pizza only', () => {
+    const r = combineCheck([
+      { label: 'לחם', hydration: 0.72, items: [itemFrom(T('loaf'), 1)] },
+      { label: 'פיצה', hydration: 0.72, items: [itemFrom(T('pizza'), 2)] },
+    ]);
+    expect(r.separate).toHaveLength(0);
+    expect(r.together).toHaveLength(2);
+    expect(r.notes[0]).toMatch(/שמן זית.*רק לחלק הזה/);
+  });
+  it('a much wetter or sweeter dough is separate, with a reason', () => {
+    const r = combineCheck([
+      { label: 'לחם', hydration: 0.72, items: [itemFrom(T('loaf'), 1)] },
+      { label: 'פוקאצ׳ה', hydration: 0.85, items: [itemFrom(T('rolls'), 4)] },
+      { label: 'בייגלה', hydration: 0.72, items: [itemFrom(T('bagel'), 6)] },
+    ]);
+    expect(r.together).toHaveLength(1);
+    expect(r.separate.map((s) => s.part.label)).toEqual(['פוקאצ׳ה', 'בייגלה']);
+    expect(r.separate[0]!.why).toContain('הידרציה');
+    expect(r.separate[1]!.why).toContain('סוכר');
+  });
+});

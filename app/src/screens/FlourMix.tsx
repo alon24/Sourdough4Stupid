@@ -36,6 +36,7 @@ export function FlourMix({ items, onChange, onSaved, onValidity }: { items: MixI
   const [name, setName] = useState('');
   const [newFlour, setNewFlour] = useState('');
   const [newAbs, setNewAbs] = useState(0);
+  const [confirmDel, setConfirmDel] = useState('');
   const [base, setBase] = useState(() => sum(items) || 1000);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const flours = allFlours();
@@ -81,38 +82,44 @@ export function FlourMix({ items, onChange, onSaved, onValidity }: { items: MixI
   };
 
   return (
-    <section class="card" aria-label="הרכב הקמחים">
-      <strong>הרכב הקמחים שלי</strong>
+    <section class="card mixcard" aria-label="הרכב הקמחים">
+      <div class="row">
+        <strong>הרכב הקמחים שלי</strong>
+        <label class="mixbase">
+          <span class="muted">קמח כולל</span>
+          <input aria-label="קמח כולל" type="text" inputMode="numeric" value={draft.base ?? base} onInput={(e) => setBaseTo(e.currentTarget.value)} onBlur={() => blur('base')} />
+          <span class="muted">ג'</span>
+        </label>
+      </div>
       {st.flourPresets.length > 0 && (
-        <div class="chips">
+        <div class="chips" aria-label="תמהילים שמורים" data-testid="presets">
           {st.flourPresets.map((p: FlourPreset) => (
-            <span class="chip-wrap" style="display:inline-flex;gap:2px">
-              <button class="chip" onClick={() => { setBase(sum(p.items) || 1000); setDraft({}); emit(p.items); }}>{p.name}</button>
-              <button class="chip" aria-label={`מחק את ${p.name}`} onClick={() => setState({ flourPresets: st.flourPresets.filter((x) => x.id !== p.id) })}>×</button>
+            <span class="chipx">
+              <button class="chipx-main" onClick={() => { setBase(sum(p.items) || 1000); setDraft({}); emit(p.items); }}>{p.name}</button>
+              {confirmDel === p.id ? (
+                <button class="chipx-del sure" aria-label={`אישור מחיקה של ${p.name}`} onClick={() => { setConfirmDel(''); setState({ flourPresets: st.flourPresets.filter((x) => x.id !== p.id) }); }}>מחק?</button>
+              ) : (
+                <button class="chipx-del" aria-label={`מחק את ${p.name}`} onClick={() => setConfirmDel(p.id)}>×</button>
+              )}
             </span>
           ))}
         </div>
       )}
-      <label class="row" style="justify-content:flex-start;gap:8px">
-        <span class="muted">קמח כולל</span>
-        <input aria-label="קמח כולל" type="text" inputMode="numeric" style="width:84px" value={draft.base ?? base} onInput={(e) => setBaseTo(e.currentTarget.value)} onBlur={() => blur('base')} />
-        <span class="muted">ג'</span>
-      </label>
+      <div class="mixhead" aria-hidden="true"><span>קמח</span><span>%</span><span>גרם</span><span></span></div>
       {items.map((it, k) => (
-        <div class="row" data-testid="mix-row" style="flex-wrap:wrap;gap:6px">
+        <div class="mixrow" data-testid="mix-row">
           <select aria-label="סוג קמח" value={it.flour} onChange={(e) => set(k, { flour: e.currentTarget.value })}>
             {flours.map((f) => <option value={f.id} disabled={f.id !== it.flour && items.some((o, j) => j !== k && o.flour === f.id)}>{f.name}</option>)}
           </select>
-          <input aria-label="אחוז" type="text" inputMode="decimal" style="width:64px" value={draft[`p${k}`] ?? r1(pctOf(it.grams))} onInput={(e) => setPct(k, e.currentTarget.value)} onBlur={() => blur(`p${k}`)} />
-          <span class="muted">%</span>
-          <input aria-label="גרמים" type="text" inputMode="numeric" style="width:72px" value={draft[`g${k}`] ?? it.grams} onInput={(e) => setGrams(k, e.currentTarget.value)} onBlur={() => blur(`g${k}`)} />
-          <span class="muted">ג'</span>
-          <button class="btn small" aria-label="הסר קמח" onClick={() => emit(items.filter((_, j) => j !== k))} disabled={items.length === 1}>×</button>
+          <input aria-label="אחוז" type="text" inputMode="decimal" value={draft[`p${k}`] ?? r1(pctOf(it.grams))} onInput={(e) => setPct(k, e.currentTarget.value)} onBlur={() => blur(`p${k}`)} />
+          <input aria-label="גרמים" type="text" inputMode="numeric" value={draft[`g${k}`] ?? it.grams} onInput={(e) => setGrams(k, e.currentTarget.value)} onBlur={() => blur(`g${k}`)} />
+          <button class="btn icon quiet" aria-label="הסר קמח" onClick={() => emit(items.filter((_, j) => j !== k))} disabled={items.length === 1}>×</button>
         </div>
       ))}
-      <div class="row">
+      <div class="mixtotal">
         <span data-testid="mix-status" role="status" style={`font-weight:700;color:${whole ? 'inherit' : 'var(--coral)'}`}>
           {whole ? 'סה"כ 100% ✓' : pctTotal < 100 ? <>סה"כ <span class="num" data-testid="mix-pct">{pctTotal}</span>%, חסרים <span class="num" data-testid="mix-left">{r1(100 - pctTotal)}</span>%</> : <>סה"כ <span class="num" data-testid="mix-pct">{pctTotal}</span>%, יותר מדי ב־<span class="num" data-testid="mix-left">{r1(pctTotal - 100)}</span>%</>}
+          <span class="muted" style="font-weight:400"> · <span class="num" data-testid="mix-total">{total}</span> ג'</span>
         </span>
         <button class="btn small" onClick={add} disabled={!nextFlour}>+ הוסף קמח</button>
       </div>
@@ -122,11 +129,11 @@ export function FlourMix({ items, onChange, onSaved, onValidity }: { items: MixI
           <button class="btn small" onClick={mergeDupes}>אחד את השורות</button>
         </div>
       )}
-      <span class="muted">סה"כ <span class="num" data-testid="mix-total">{total}</span> ג'. אפשר לערוך אחוזים או גרמים, והשני מתעדכן. לשמירה צריך 100%.</span>
-      <div class="row">
+      <div class="mixsave">
         <input aria-label="שם לתמהיל" placeholder="שם לשמירה" value={name} onInput={(e) => setName(e.currentTarget.value)} />
         <button class="btn small" onClick={savePreset} disabled={!name.trim() || !whole}>שמור תמהיל</button>
       </div>
+      <span class="muted" style="font-size:13px">אפשר לערוך אחוזים או גרמים והשני מתעדכן. לשמירה צריך 100%.</span>
       <details>
         <summary>קמח משלי</summary>
         {st.customFlours.map((f) => (

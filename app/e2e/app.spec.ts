@@ -170,7 +170,7 @@ test('starting from starter: 300 g wanted, 30 g in the fridge', async ({ page })
   await page.getByLabel('כמה סטארטר לשים בבצק (גרם)').fill('300');
   await page.getByLabel('יש לי עכשיו (גרם)').fill('30');
   await expect(page.getByTestId('chain')).toContainText('2 האכלות');
-  await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
+  await page.getByRole('button', { name: /צריך להגדיל את הסטארטר/ }).click();
   await expect(page.getByRole('button', { name: /האכלה 1 מתוך 2/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /האכלה 2 מתוך 2/ })).toBeVisible();
 });
@@ -184,7 +184,7 @@ test('more starter in hand means fewer feedings', async ({ page }) => {
 
 test('a ready starter skips the feeding steps', async ({ page }) => {
   await page.goto('/#/new');
-  await page.getByLabel('הסטארטר כבר מוכן ועל השיא').check();
+  await page.getByLabel('הסטארטר כבר מוכן ועל השיא').click();
   await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
   await expect(page.getByRole('heading', { name: 'התוכנית שלך' })).toBeVisible();
   await expect(page.getByRole('button', { name: /האכלה|להאכיל סטארטר/ })).toHaveCount(0);
@@ -277,6 +277,7 @@ test('my own flour mix: grams and percent stay in sync, can be saved, remembered
   await page.getByRole('button', { name: 'הרכב קמחים משלי' }).click();
   await expect(page.getByRole('button', { name: 'חצי חצי', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'מחק את חצי חצי' }).click();
+  await page.getByRole('button', { name: 'אישור מחיקה של חצי חצי' }).click();
   await expect(page.getByRole('button', { name: 'חצי חצי', exact: true })).toHaveCount(0);
 });
 
@@ -461,7 +462,8 @@ test('reference bake: 32 g stiff, 300 g tomorrow, 2 loaves of 1 kg + rolls, spli
   await expect(page.getByTestId('chain')).toContainText('האכלה אחת');
   await page.getByRole('button', { name: /הכול יחד/ }).click();
   await page.getByRole('combobox', { name: 'העשרת הלחמניות' }).selectOption('oil');
-  await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
+  const feed = page.getByRole('button', { name: /צריך להגדיל את הסטארטר/ });
+  if (await feed.count()) await feed.click(); else await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
   await expect(page.getByTestId('split')).toContainText('2 כיכרות × 1000');
   await expect(page.getByTestId('split')).toContainText('7 לחמניות');
   await page.getByRole('button', { name: /להאכיל סטארטר/ }).click();
@@ -526,7 +528,7 @@ const seedPlanWithDueStep = async (page: import('@playwright/test').Page) => {
   });
 };
 
-const TAB_ROUTES: [string, RegExp][] = [['תוכנית', /#\/plan$/], ['אפייה', /#\/new$/], ['מתכונים', /#\/recipes$/], ['מחשבון', /#\/calc$/], ['בית', /#\/$/]];
+const TAB_ROUTES: [string, RegExp][] = [['אפיות', /#\/plan$/], ['התחלה', /#\/new$/], ['מתכונים', /#\/recipes$/], ['מחשבון', /#\/calc$/], ['בית', /#\/$/]];
 
 test('tabs work with an overdue step, granted notifications that throw, and a tall toast (tapped like a phone)', async ({ page }) => {
   const errors: string[] = [];
@@ -565,7 +567,7 @@ test('the service worker registers and the app keeps working after a reload unde
   await page.goto('/');
   await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
   await page.reload();
-  await page.locator('nav.tabs').getByText('תוכנית', { exact: true }).tap();
+  await page.locator('nav.tabs').getByText('אפיות', { exact: true }).tap();
   await expect(page).toHaveURL(/#\/plan$/);
 });
 
@@ -718,7 +720,8 @@ test('items and starter need: a kilo loaf defaults to 1, 200 g on hand asks if s
   await expect(page.getByLabel('כמות בריוש')).toHaveText('1');
   await page.getByLabel('כמה סטארטר לשים בבצק (גרם)').fill('300');
   await page.getByRole('button', { name: 'הסר בריוש' }).click();
-  await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
+  const feed = page.getByRole('button', { name: /צריך להגדיל את הסטארטר/ });
+  if (await feed.count()) await feed.click(); else await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
   await expect(page.getByTestId('split')).toContainText('פיצה');
   await expect(page.getByRole('button', { name: /לאפות פיצה/ })).toBeVisible();
 });
@@ -777,7 +780,7 @@ const seedState = (page: import('@playwright/test').Page, patch: Record<string, 
 
 test('scenario 1, a new user opens the app: nothing running, asked about the starter, answers, and is led to start a bake', async ({ page }) => {
   await page.goto('/#/');
-  await expect(page.getByTestId('idle')).toContainText('אין תוכנית רצה');
+  await expect(page.getByTestId('idle')).toContainText('אין אפייה רצה');
   await expect(page.getByTestId('starter-ask')).toBeVisible();
   await page.getByRole('link', { name: 'כן, בוא נגדיר' }).click();
   await page.getByRole('button', { name: 'רגיל (100%)' }).click();
@@ -807,7 +810,7 @@ test('scenario 3, checking a running bake: home says a plan is running, shows th
   await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
   await page.goto('/#/');
   const run = page.getByTestId('running');
-  await expect(run).toContainText('תוכנית רצה עכשיו');
+  await expect(run).toContainText('אפייה רצה עכשיו');
   await expect(run).toContainText('השלב הבא');
   await expect(run).toContainText(/שלב 1 מתוך \d+/);
   await run.click();
@@ -830,10 +833,10 @@ test('scenario 5, looking back at the last bake: a finished bake shows in "what 
   await page.getByRole('button', { name: 'ניהול הכיכר' }).click();
   await page.getByLabel('הערה למסלול הזה').fill('יצא מצוין');
   await page.getByRole('button', { name: 'סגור' }).first().click({ position: { x: 5, y: 5 } });
-  await page.getByRole('button', { name: 'בטל תוכנית' }).click();
+  await page.getByRole('button', { name: 'בטל אפייה' }).click();
   await page.goto('/#/');
   await expect(page.getByTestId('idle')).toBeVisible();
-  await expect(page.getByTestId('recent')).toContainText('מה אפיתי לאחרונה');
+  await expect(page.getByTestId('recent')).toContainText('יומן אפיות');
   await expect(page.getByTestId('recent-item')).toHaveCount(1);
   await expect(page.getByTestId('recent')).toContainText('1 הערות');
 });
@@ -936,10 +939,149 @@ test('two bakes at once: both on home, switch between them, alarms carry the bak
   expect(sets.every((o) => o.title!.includes(' · '))).toBe(true);
   // open the second one and cancel it: the first stays
   await page.getByTestId('running').nth(1).click();
-  await page.getByRole('button', { name: 'בטל תוכנית' }).click();
+  await page.getByRole('button', { name: 'בטל אפייה' }).click();
   await page.goto('/#/');
   await expect(page.getByTestId('running')).toHaveCount(1);
   const st = await page.evaluate(() => JSON.parse(localStorage.getItem('machmetzet.v1')!));
   expect(st.others).toHaveLength(0);
   expect(st.plan).not.toBeNull();
+});
+
+test('scaling and combining: a base batch times N, other recipes join the dough, incompatible ones are flagged', async ({ page }) => {
+  const mk = (id: string, name: string, hydration: number, items: object[]) => ({ id, name, fav: false, loaves: (items as { type: string; count: number }[]).filter((i) => i.type === 'loaf').reduce((n, i) => n + i.count, 0), rolls: (items as { type: string; count: number }[]).filter((i) => i.type !== 'loaf').reduce((n, i) => n + i.count, 0), weight: 1000, shape: 'free', inclusions: [], kneading: 'hand', cold: true, hydration, mix: [{ flour: 'white', grams: 1000 }], items });
+  await seedState(page, {
+    recipes: [
+      mk('a', 'לחם ושש לחמניות', 0.72, [{ type: 'loaf', count: 1, weight: 1000, starterPct: 0.1, name: 'לחם כפרי' }, { type: 'rolls', count: 6, weight: 90, starterPct: 0.12, name: 'לחמניות' }]),
+      mk('b', 'פיצה של שישי', 0.72, [{ type: 'pizza', count: 2, weight: 250, starterPct: 0.06, name: 'פיצה' }]),
+      mk('c', 'פוקאצ׳ה רטובה', 0.85, [{ type: 'rolls', count: 4, weight: 150, starterPct: 0.1, name: 'פריט' }]),
+    ],
+  });
+  await page.reload();
+  await page.goto('/#/new/a');
+  const scale = page.getByTestId('scale');
+  await expect(scale).toContainText('1 כיכרות + 6 לחמניות');
+  await page.getByRole('button', { name: 'עוד הכפלת המתכון' }).click();
+  await expect(page.getByTestId('scaled')).toContainText('2 כיכרות + 12 לחמניות');
+  const dough2 = await page.getByTestId('scaled-total').innerText();
+  // the base batch is untouched
+  await expect(page.getByTestId('items').getByRole('status').first()).toBeHidden().catch(() => undefined);
+  await page.getByLabel('הוספת מתכון לשילוב').selectOption('b');
+  await expect(page.getByTestId('combine-note')).toContainText('שמן זית');
+  await expect(page.getByTestId('combine-note')).toContainText('רק לחלק הזה');
+  expect(await page.getByTestId('scaled-total').innerText()).not.toBe(dough2);
+  await page.getByLabel('הוספת מתכון לשילוב').selectOption('c');
+  await expect(page.getByTestId('combine-separate')).toContainText('ההידרציה שונה');
+  await page.getByRole('button', { name: /לתכנן רק את מה שמתחלק/ }).click();
+  await expect(page.getByTestId('combine-separate')).toHaveCount(0);
+  await expect(page.getByTestId('extra-recipe')).toHaveCount(1);
+  await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
+  await expect(page.getByRole('heading', { name: 'התוכנית שלך' })).toBeVisible();
+  await expect(page.getByTestId('split-note')).toContainText('שמן זית');
+  const st = await page.evaluate(() => JSON.parse(localStorage.getItem('machmetzet.v1')!));
+  expect(st.recipes.find((r: { id: string }) => r.id === 'a').items[1].count).toBe(6); // stored as the base batch
+});
+
+test('bake log: status, filter, edit notes, delete, and the link from a recipe', async ({ page }) => {
+  const t = Date.now();
+  await seedState(page, {
+    recipes: [{ id: 'a', name: 'הלחם שלי', fav: false, loaves: 1, rolls: 0, weight: 1000, shape: 'free', inclusions: [], kneading: 'hand', cold: true, hydration: 0.72, mix: [{ flour: 'white', grams: 1000 }] }],
+    history: [
+      { title: 'לחם א', finishedAt: t - 1000, status: 'success', recipeId: 'a', inclusions: ['צימוקים'], notes: ['יצא מעולה'] },
+      { title: 'לחם ב', finishedAt: t - 2000, status: 'failed' },
+      { title: 'לחם ישן', finishedAt: t - 3000 },
+    ],
+  });
+  await page.reload();
+  await page.goto('/#/recipes');
+  await expect(page.getByTestId('recipe-bakes')).toContainText('1 אפיות');
+  await page.getByTestId('recipe-bakes').click();
+  await expect(page.getByTestId('log-entry')).toHaveCount(1);
+  await expect(page.getByTestId('log-entry')).toContainText('צימוקים');
+  await page.getByRole('link', { name: 'כל היומן' }).click();
+  await expect(page.getByTestId('log-entry')).toHaveCount(3);
+  await page.getByRole('button', { name: 'לא הצליחה', exact: true }).click();
+  await expect(page.getByTestId('log-entry')).toHaveCount(1);
+  await page.getByLabel('סטטוס לחם ב').selectOption('success');
+  await page.getByRole('button', { name: 'הכול' }).click();
+  await page.getByRole('button', { name: 'עריכת הערות' }).first().click();
+  await page.getByLabel('הערות לחם א').fill('יצא מעולה\nפחות מלח בפעם הבאה');
+  const st = await page.evaluate(() => JSON.parse(localStorage.getItem('machmetzet.v1')!).history);
+  expect(st.find((h: { title: string }) => h.title === 'לחם ב').status).toBe('success');
+  expect(st.find((h: { title: string }) => h.title === 'לחם א').notes).toHaveLength(2);
+  await page.getByRole('button', { name: 'מחק את לחם ישן' }).click();
+  await page.getByRole('button', { name: 'אישור מחיקה של לחם ישן' }).click();
+  await expect(page.getByTestId('log-entry')).toHaveCount(2);
+});
+
+test('flour mix is tidy: saved blends carry their own delete with a confirm, one aligned row per flour', async ({ page }) => {
+  await seedState(page, { flourPresets: [{ id: 'p1', name: 'שבת', items: [{ flour: 'white', grams: 800 }, { flour: 'wholewheat', grams: 200 }] }] });
+  await page.reload();
+  await page.goto('/#/recipe');
+  await page.getByRole('button', { name: 'הרכב קמחים משלי' }).click();
+  const presets = page.getByTestId('presets');
+  await expect(presets).toBeVisible();
+  await presets.getByRole('button', { name: 'שבת', exact: true }).click();
+  await expect(page.getByTestId('mix-row')).toHaveCount(2);
+  const rows = await page.getByTestId('mix-row').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().width));
+  expect(Math.max(...rows) - Math.min(...rows)).toBeLessThan(1);
+  await page.getByRole('button', { name: 'מחק את שבת' }).click();
+  await expect(presets.getByRole('button', { name: 'שבת', exact: true })).toBeVisible(); // not yet
+  await page.getByRole('button', { name: 'אישור מחיקה של שבת' }).click();
+  await expect(page.getByTestId('presets')).toHaveCount(0);
+});
+
+test('recipe settings are only recommendations: preselected at the start of a bake, changeable, and the recipe stays as it was', async ({ page }) => {
+  await seedState(page, {
+    recipes: [{ id: 'm', name: 'מכונה בלי אוטוליזה', fav: false, loaves: 1, rolls: 0, weight: 1000, shape: 'free', inclusions: [], kneading: 'machine', cold: false, autolyse: false, hydration: 0.72, mix: [{ flour: 'white', grams: 1000 }] }],
+  });
+  await page.reload();
+  await page.goto('/#/new/m');
+  await expect(page.getByRole('button', { name: 'מכונה', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: /בלי אוטוליזה/ })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: 'אפייה באותו יום' })).toHaveAttribute('aria-pressed', 'true');
+  // every one can be flipped for this bake
+  await page.getByRole('button', { name: 'לישה ידנית' }).click();
+  await page.getByRole('button', { name: 'עם אוטוליזה' }).click();
+  await page.getByRole('button', { name: 'לילה במקרר' }).click();
+  await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
+  await page.getByRole('button', { name: 'לא, רק הפעם' }).click();
+  await expect(page.getByRole('heading', { name: 'התוכנית שלך' })).toBeVisible();
+  const st = await page.evaluate(() => JSON.parse(localStorage.getItem('machmetzet.v1')!));
+  expect(st.plan.input.kneading).toBe('hand');
+  expect(st.plan.input.autolyse).toBe(true);
+  expect(st.plan.input.coldProof).toBe(true);
+  const r = st.recipes[0];
+  expect([r.kneading, r.autolyse, r.cold]).toEqual(['machine', false, false]); // the recipe is untouched
+  expect(st.recipes).toHaveLength(1);
+});
+
+test('not enough starter blocks the start: choose to feed first or confirm you already have enough', async ({ page }) => {
+  await page.goto('/#/new');
+  await page.getByLabel('יש לי עכשיו (גרם)').fill('30');
+  const go = page.getByRole('button', { name: /אין מספיק סטארטר: בחר/ });
+  await expect(go).toBeDisabled();
+  await expect(page.getByTestId('starter-warning')).toContainText('חסרים');
+  // the ready checkbox uses the same confirmation, it does not skip the check
+  await page.getByLabel('הסטארטר כבר מוכן ועל השיא').click();
+  await expect(page.getByTestId('enough-confirm')).toBeVisible();
+  await expect(go).toBeDisabled();
+  await page.getByLabel('כמה סטארטר מוכן יש לך').fill('50');
+  await expect(page.getByTestId('enough-low')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'אישור, הסטארטר מוכן' })).toBeDisabled();
+  await page.getByLabel('כמה סטארטר מוכן יש לך').fill('100');
+  await page.getByRole('button', { name: 'אישור, הסטארטר מוכן' }).click();
+  await expect(page.getByTestId('starter-warning')).toHaveCount(0);
+  await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
+  await expect(page.getByRole('heading', { name: 'התוכנית שלך' })).toBeVisible();
+  // no feeding step: the starter was confirmed ready
+  await expect(page.getByRole('button', { name: /האכלה 1 מתוך/ })).toHaveCount(0);
+  const st = await page.evaluate(() => JSON.parse(localStorage.getItem('machmetzet.v1')!).starter.grams);
+  expect(st).toBe(100);
+});
+
+test('not enough starter: feeding first is an explicit choice', async ({ page }) => {
+  await page.goto('/#/new');
+  await page.getByLabel('יש לי עכשיו (גרם)').fill('30');
+  await page.getByRole('button', { name: /צריך להגדיל את הסטארטר/ }).click();
+  await expect(page.getByRole('button', { name: /האכלה 1 מתוך/ })).toBeVisible();
 });
