@@ -1464,3 +1464,30 @@ test('hebrew counts: one, two and many for bread and rolls', async ({ page }) =>
   await page.goto('/#/log');
   await expect(page.getByTestId('log-entry').first()).toContainText('לחם אחד, שני לחמים · לחמנייה אחת');
 });
+
+test('flows 5: short summaries on the recipe card, the running bake card and the plan', async ({ page }) => {
+  await page.goto('/#/recipes');
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('machmetzet.v1') ?? '{}');
+    s.recipes = [{ id: 'r1', name: 'לחם שבת', fav: false, loaves: 1, rolls: 0, weight: 1000, shape: 'free', inclusions: [], kneading: 'machine', cold: true, autolyse: false, hydration: 0.75, mix: [{ flour: 'white', grams: 800 }, { flour: 'whole', grams: 200 }] }];
+    s.history = [
+      { title: 'לחם שבת, 12.11', finishedAt: Date.now() - 86_400_000, status: 'success', recipeId: 'r1' },
+      { title: 'לחם שבת, 5.11', finishedAt: Date.now() - 8 * 86_400_000, status: 'failed', recipeId: 'r1' },
+    ];
+    localStorage.setItem('machmetzet.v1', JSON.stringify(s));
+  });
+  await page.reload();
+  const sum = page.getByTestId('recipe-summary');
+  await expect(sum).toContainText('80%');
+  await expect(sum).toContainText('הידרציה 75%');
+  await expect(sum).toContainText('מכונה · בלי אוטוליזה · לילה במקרר');
+  await expect(sum).toContainText('נאפה 2 פעמים');
+  await expect(sum).toContainText('הצליחה');
+  // a bake shows hydration, starter and method on home and in the plan
+  await page.goto('/#/new');
+  await startBake(page);
+  await expect(page.getByTestId('plan-summary')).toContainText('הידרציה');
+  await expect(page.getByTestId('plan-summary')).toContainText('מחמצת');
+  await page.goto('/#/');
+  await expect(page.getByTestId('running').getByTestId('plan-summary')).toContainText('הידרציה');
+});

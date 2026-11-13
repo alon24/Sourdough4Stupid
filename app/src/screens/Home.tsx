@@ -1,5 +1,6 @@
 import { Capacitor } from '@capacitor/core';
 import { dayName, hhmm, until } from '../format';
+import { planSummary } from '../summary';
 import { complete, resumeAt, shift } from '../../../core/src/index';
 import { useState } from 'preact/hooks';
 import { type ActivePlan, allPlans, closePlan, daysSinceFed, planId, selectPlan, setState, updatePlan, useStore } from '../store';
@@ -65,7 +66,8 @@ export function Home() {
                   <span class="big">{next.title}</span>
                   <span class="big num">{hhmm(next.at)}</span>
                 </div>
-                <span class="muted">{dayName(next.at)} · שלב {done + 1} מתוך {plan.steps.length}. לחיצה פותחת את כל התוכנית.</span>
+                <span class="muted" data-testid="plan-summary">{planSummary(plan)}</span>
+                <span class="muted">{dayName(next.at)} · שלב {done + 1} מתוך {plan.steps.length}</span>
               </a>
               <div class="quick" role="group" aria-label={`פעולות מהירות: ${plan.title}`}>
                 <button class="btn small primary" aria-label={`סמן כבוצע (${plan.title})`} onClick={() => act(plan, (steps) => complete(steps, next.id, Date.now()))}>✓ בוצע</button>

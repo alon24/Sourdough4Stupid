@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks';
 import { fromCsv, fromJson, recipeHtml, toCsv, toJson } from '../../../core/src/index';
 import { loavesText, rollsText } from '../format';
+import { recipeSummary } from '../summary';
 import { getState, setState, useStore } from '../store';
 
 function download(name: string, text: string, type: string) {
@@ -57,6 +58,9 @@ export function Recipes() {
               <strong>{r.name}</strong>
               <div class="muted">
                 {[r.loaves > 0 && loavesText(r.loaves), r.rolls > 0 && rollsText(r.rolls), ...r.inclusions].filter(Boolean).join(' · ')}
+              </div>
+              <div class="summary" data-testid="recipe-summary">
+                {recipeSummary(r, history).map((l) => <span>{l}</span>)}
               </div>
             </div>
             <button class="btn icon quiet" aria-label={r.fav ? `הסר ${r.name} ממועדפים` : `הוסף ${r.name} למועדפים`} onClick={() => patch(r.id, { fav: !r.fav })}>{r.fav ? '★' : '☆'}</button>
