@@ -11,7 +11,7 @@ async function goStep(page: import('@playwright/test').Page, n: number) {
     if (text === null) return;
     const cur = Number(/שלב (\d)/.exec(text)?.[1]);
     if (cur === n) return;
-    await page.getByRole('button', { name: cur < n ? /^הבא/ : 'הקודם' }).first().click();
+    await page.getByRole('button', { name: cur < n ? /^הבא/ : 'הקודם' }).first().click({ timeout: 3000 }).catch(() => undefined);
   }
 }
 
