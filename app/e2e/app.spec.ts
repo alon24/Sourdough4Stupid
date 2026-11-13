@@ -638,11 +638,11 @@ test('home: bake status before the starter, the starter is asked about and never
   const ask = page.getByTestId('starter-ask');
   await expect(ask).toContainText('יש לך סטארטר?');
   await expect(page.getByText(/רעב כבר/)).toHaveCount(0);
-  const status = await page.getByText('אין אפייה בתנור').boundingBox();
+  const status = await page.getByTestId('idle').boundingBox();
   const starter = await ask.boundingBox();
   expect(status!.y).toBeLessThan(starter!.y);
   const recipes = await page.getByRole('link', { name: 'מתכונים' }).first().boundingBox();
-  const fresh = await page.getByRole('link', { name: 'אפייה חדשה' }).boundingBox();
+  const fresh = await page.getByRole('link', { name: 'להתחיל אפייה' }).boundingBox();
   expect(Math.abs(recipes!.y - fresh!.y)).toBeLessThan(5);
   await ask.getByRole('link', { name: 'כן, בוא נגדיר' }).click();
   await expect(page.getByRole('heading', { name: 'מה מצב הסטארטר?' })).toBeVisible();
@@ -766,4 +766,150 @@ test('starter explanations: the need is spelled out, the shortfall says what to 
   await page.getByRole('button', { name: 'תכנן לי את ההאכלות' }).click();
   await expect(page.getByRole('heading', { name: 'התוכנית שלך' })).toBeVisible();
   await expect(page.getByRole('button', { name: /האכלה 1 מתוך/ })).toBeVisible();
+});
+
+// ---- user scenarios (docs/SPEC.md 4.19), clicked through like a person ----
+const seedState = (page: import('@playwright/test').Page, patch: Record<string, unknown>) =>
+  page.evaluate((p) => {
+    const st = JSON.parse(localStorage.getItem('machmetzet.v1') ?? '{}');
+    localStorage.setItem('machmetzet.v1', JSON.stringify({ ...st, ...p }));
+  }, patch);
+
+test('scenario 1, a new user opens the app: nothing running, asked about the starter, answers, and is led to start a bake', async ({ page }) => {
+  await page.goto('/#/');
+  await expect(page.getByTestId('idle')).toContainText('אין תוכנית רצה');
+  await expect(page.getByTestId('starter-ask')).toBeVisible();
+  await page.getByRole('link', { name: 'כן, בוא נגדיר' }).click();
+  await page.getByRole('button', { name: 'רגיל (100%)' }).click();
+  await page.getByRole('button', { name: /בחוץ/ }).click();
+  await page.getByRole('button', { name: 'אתמול' }).click();
+  await page.getByRole('button', { name: 'פעיל ובועבע' }).click();
+  await page.getByRole('button', { name: '100', exact: true }).click();
+  await page.getByRole('button', { name: 'שמור ובחזרה לבית' }).click();
+  await page.getByTestId('starter-next').click();
+  await expect(page.getByRole('heading', { name: 'מה בא לך?' })).toBeVisible();
+});
+
+test('scenario 2, a returning user wants a recipe: home, recipes, bake from it', async ({ page }) => {
+  await page.goto('/#/recipe');
+  await page.getByLabel('שם המתכון').fill('הלחם של שבת');
+  await page.getByRole('button', { name: 'שמור מתכון' }).click();
+  await page.goto('/#/');
+  await page.getByRole('link', { name: /מתכונים/ }).first().click();
+  await expect(page.getByTestId('recipe')).toContainText('הלחם של שבת');
+  await page.getByRole('link', { name: 'אפייה חדשה' }).first().click();
+  await expect(page.getByRole('heading', { name: 'מה בא לך?' })).toBeVisible();
+  await expect(page.getByLabel('בחירת מתכון')).not.toHaveValue('');
+});
+
+test('scenario 3, checking a running bake: home says a plan is running, shows the next step and opens the plan', async ({ page }) => {
+  await page.goto('/#/new');
+  await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
+  await page.goto('/#/');
+  const run = page.getByTestId('running');
+  await expect(run).toContainText('תוכנית רצה עכשיו');
+  await expect(run).toContainText('השלב הבא');
+  await expect(run).toContainText(/שלב 1 מתוך \d+/);
+  await run.click();
+  await expect(page.getByRole('heading', { name: 'התוכנית שלך' })).toBeVisible();
+});
+
+test('scenario 4, starting a bake without a starter: the wizard asks how much starter and warns', async ({ page }) => {
+  await page.goto('/#/');
+  await page.getByRole('button', { name: 'אין לי עדיין' }).click();
+  await expect(page.getByText('אין סטארטר עדיין')).toBeVisible();
+  await page.getByRole('link', { name: 'להתחיל אפייה' }).click();
+  await page.getByLabel('יש לי עכשיו (גרם)').fill('0');
+  await expect(page.getByTestId('starter-section')).toBeVisible();
+  await expect(page.getByTestId('starter-warning')).toBeVisible();
+});
+
+test('scenario 5, looking back at the last bake: a finished bake shows in "what I baked lately" with its notes', async ({ page }) => {
+  await page.goto('/#/new');
+  await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
+  await page.getByRole('button', { name: 'ניהול הכיכר' }).click();
+  await page.getByLabel('הערה למסלול הזה').fill('יצא מצוין');
+  await page.getByRole('button', { name: 'סגור' }).first().click({ position: { x: 5, y: 5 } });
+  await page.getByRole('button', { name: 'בטל תוכנית' }).click();
+  await page.goto('/#/');
+  await expect(page.getByTestId('idle')).toBeVisible();
+  await expect(page.getByTestId('recent')).toContainText('מה אפיתי לאחרונה');
+  await expect(page.getByTestId('recent-item')).toHaveCount(1);
+  await expect(page.getByTestId('recent')).toContainText('1 הערות');
+});
+
+test('scenario 6, nothing is running: a clear way to start', async ({ page }) => {
+  await page.goto('/#/');
+  await expect(page.getByTestId('idle')).toBeVisible();
+  await page.getByRole('link', { name: 'להתחיל אפייה' }).click();
+  await expect(page).toHaveURL(/#\/new$/);
+});
+
+test('recipe editing never depends on the starter I have: no stock fields or warnings, only what the recipe needs', async ({ page }) => {
+  await page.goto('/#/recipe');
+  await expect(page.getByTestId('recipe-starter')).toContainText('כמה סטארטר צריך');
+  await expect(page.getByTestId('recipe-starter')).toContainText('בלי קשר לכמה יש לך');
+  await expect(page.getByLabel('יש לי עכשיו (גרם)')).toHaveCount(0);
+  await page.getByRole('button', { name: 'עוד לחם' }).click();
+  await page.getByRole('button', { name: 'עוד לחם' }).click();
+  await expect(page.getByTestId('starter-warning')).toHaveCount(0);
+  await page.getByLabel('שם המתכון').fill('שלושה לחמים');
+  await page.getByRole('button', { name: 'שמור מתכון' }).click();
+  await expect(page.getByTestId('recipe')).toContainText('שלושה לחמים');
+  // the check happens at bake start
+  await page.getByRole('link', { name: 'אפייה חדשה' }).first().click();
+  await page.getByLabel('יש לי עכשיו (גרם)').fill('100');
+  await expect(page.getByTestId('starter-warning')).toContainText('אין לך מספיק סטארטר לתוכנית הזאת');
+});
+
+test('starter status accepts typed values: hydration, grams, time in the fridge in weeks', async ({ page }) => {
+  await page.goto('/#/starter');
+  await page.getByLabel('הידרציה באחוזים').fill('70');
+  await page.getByRole('button', { name: 'במקרר' }).click();
+  await page.getByLabel('כמה זמן במקרר').fill('3');
+  await page.getByLabel('יחידת זמן').selectOption('7');
+  await page.getByLabel('כמה גרם יש לך').fill('120');
+  await expect(page.getByTestId('starter-advice')).toContainText('חיזוק');
+  await page.getByLabel('כמה גרם יש לך').fill('0');
+  await expect(page.getByText('בין 1 ל־5000')).toBeVisible();
+  await page.getByLabel('כמה גרם יש לך').fill('120');
+  await page.getByRole('button', { name: 'שמור ובחזרה לבית' }).click();
+  const st = await page.evaluate(() => JSON.parse(localStorage.getItem('machmetzet.v1')!).starter);
+  expect(st.hydration).toBeCloseTo(0.7);
+  expect(st.type).toBe('stiff');
+  expect(st.grams).toBe(120);
+  expect(st.inFridge).toBe(true);
+  expect(Math.round((Date.now() - st.lastFedAt) / 86_400_000)).toBe(21);
+});
+
+test('a flour can appear once in a blend: used flours are disabled, add picks an unused one, old duplicates can be merged', async ({ page }) => {
+  await page.goto('/#/new');
+  await page.getByRole('button', { name: 'הרכב קמחים משלי' }).click();
+  await page.getByRole('button', { name: '+ הוסף קמח' }).click();
+  const sel = (i: number) => page.getByRole('combobox', { name: 'סוג קמח' }).nth(i);
+  const first = await sel(0).inputValue();
+  const second = await sel(1).inputValue();
+  expect(second).not.toBe(first);
+  await expect(sel(1).locator(`option[value="${first}"]`)).toBeDisabled();
+  await expect(sel(0).locator(`option[value="${second}"]`)).toBeDisabled();
+  // keep adding until every flour is used: the button locks
+  for (let i = 0; i < 30 && (await page.getByRole('button', { name: '+ הוסף קמח' }).isEnabled()); i++) {
+    await page.getByRole('button', { name: '+ הוסף קמח' }).click();
+  }
+  await expect(page.getByRole('button', { name: '+ הוסף קמח' })).toBeDisabled();
+  const rows = await page.getByTestId('mix-row').count();
+  const ids = await page.getByRole('combobox', { name: 'סוג קמח' }).evaluateAll((els) => els.map((e) => (e as HTMLSelectElement).value));
+  expect(new Set(ids).size).toBe(rows);
+});
+
+test('a saved recipe with the same flour twice shows a message and merges the rows', async ({ page }) => {
+  await page.goto('/#/');
+  await seedState(page, { recipes: [{ id: 'rd', name: 'ישן', fav: false, loaves: 1, rolls: 0, weight: 1000, shape: 'free', inclusions: [], kneading: 'hand', cold: true, hydration: 0.72, mix: [{ flour: 'white', grams: 150 }, { flour: 'white', grams: 150 }, { flour: 'spelt', grams: 700 }] }] });
+  await page.goto('/#/recipe/rd');
+  await page.reload();
+  await expect(page.getByTestId('mix-dupes')).toBeVisible();
+  await page.getByRole('button', { name: 'אחד את השורות' }).click();
+  await expect(page.getByTestId('mix-dupes')).toHaveCount(0);
+  await expect(page.getByTestId('mix-row')).toHaveCount(2);
+  await expect(page.getByLabel('אחוז', { exact: true }).first()).toHaveValue('30');
 });

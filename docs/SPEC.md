@@ -869,3 +869,18 @@ Checks against the starter on hand:
 - More than 1.5 times the need: "are you sure about the starter amount?", with the normal amount and a stronger one (150%) showing what is left over and how much faster the rise is.
 - In between: confirmation of the amount.
 Non-loaf items share one "rolls" branch in the plan, named after the item (pizza, bagels...), with that item's bake note.
+
+## 4.19 Home screen and user scenarios
+
+Home order: (1) a card saying whether a plan is running now (next step, countdown, "step k of n"; or "no plan running"), (2) two entry buttons: Recipes and Start a bake, (3) the starter card (do you have a starter? where, when fed, what state; then "start a bake"), (4) "what I baked lately" (last three finished bakes with notes and photo counts), (5) real-alarms check, then help, download and sync links.
+
+Principle: a recipe says how much starter is needed; it never looks at the starter I have. The sufficiency check ("not enough starter for this plan, let us build first") only happens when a bake is started.
+
+Scenarios, each covered by an e2e test that clicks through it:
+1. New user opens the app: nothing running, is asked about the starter, answers the questionnaire, and is led to start a bake.
+2. Returning user wants a recipe: Home, Recipes, bake from the recipe.
+3. Checking a running bake: Home says a plan is running with the next step; a tap opens the plan.
+4. Starting a bake without a starter: "no starter yet", start a bake, the wizard warns and offers to plan the feedings.
+5. Looking back: a finished bake appears under "what I baked lately" with its notes.
+6. Nothing running: a clear way to start.
+Also: the starter questionnaire accepts typed values (hydration percent, grams, days or weeks in the fridge, hours since feeding); a flour appears once per blend.

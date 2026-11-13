@@ -6,7 +6,8 @@ import { daysSinceFed, setState, useStore } from '../store';
 const isApk = Capacitor.isNativePlatform();
 
 export function Home() {
-  const { starter, plan } = useStore();
+  const { starter, plan, history } = useStore();
+  const done = plan?.steps.filter((x) => x.doneAt !== undefined).length ?? 0;
   const days = daysSinceFed(starter);
   const next = plan?.steps.find((s) => s.doneAt === undefined);
   const known = starter.known === true;
@@ -31,25 +32,30 @@ export function Home() {
       </div>
 
       {next && plan ? (
-        <a class="card" href="#/plan" style="text-decoration:none;color:inherit" aria-label="השלב הבא">
+        <a class="card sun running" href="#/plan" style="text-decoration:none;color:inherit" aria-label="תוכנית רצה עכשיו" data-testid="running">
           <div class="row">
-            <span class="sub">השלב הבא · {plan.title}</span>
+            <span class="sub">▶ תוכנית רצה עכשיו · {plan.title}</span>
             <span class="tag">{until(next.at)}</span>
           </div>
+          <span class="muted">השלב הבא</span>
           <div class="row">
             <span class="big">{next.title}</span>
             <span class="big num">{hhmm(next.at)}</span>
           </div>
-          <span class="muted">{dayName(next.at)}</span>
+          <span class="muted">{dayName(next.at)} · שלב {done + 1} מתוך {plan.steps.length}. לחיצה פותחת את כל התוכנית.</span>
         </a>
       ) : (
-        <section class="card">
-          <span class="big">אין אפייה בתנור</span>
-          <span class="muted">בוחרים כמה לחמים ומתי, והתוכנית מסתדרת לבד.</span>
+        <section class="card" data-testid="idle">
+          <span class="big">אין תוכנית רצה</span>
+          <span class="muted">כשתתחיל אפייה, כאן תראה מה השלב הבא ומתי.</span>
         </section>
       )}
 
-      <AlarmCheck />
+      <div class="grid2">
+        <a class="btn" href="#/recipes">📖 מתכונים</a>
+        <a class="btn primary" href="#/new">🍞 להתחיל אפייה</a>
+      </div>
+      <span class="muted" style="text-align:center;font-size:13px">מתכונים: התבניות השמורות שלך. להתחיל אפייה: בוחרים מה אופים ומתי, והתוכנית מסתדרת.</span>
 
       {!known && !starter.none ? (
         <section class="card sun" aria-label="הסטארטר שלי" data-testid="starter-ask">
@@ -65,6 +71,7 @@ export function Home() {
           <span class="big">אין סטארטר עדיין</span>
           <span class="muted">אפשר להכין אחד מקמח ומים בכמה ימים. כשיש, מגדירים אותו כאן.</span>
           <a class="btn small" href="#/starter">יש לי סטארטר עכשיו</a>
+          <a class="btn small" href="#/new" data-testid="starter-next">לתכנן אפייה בלי סטארטר מוכן</a>
         </section>
       ) : (
         <section class="card sun" aria-label="הסטארטר שלי">
@@ -80,13 +87,28 @@ export function Home() {
             </button>
           </div>
           <a class="btn small" href="#/starter" style="color:#2B1D3A;border-color:#2B1D3A">עדכון מצב הסטארטר</a>
+          <a class="btn small" href="#/new" style="color:#2B1D3A;border-color:#2B1D3A" data-testid="starter-next">יש סטארטר: להתחיל אפייה</a>
         </section>
       )}
 
-      <div class="grid2">
-        <a class="btn primary" href="#/recipes">מתכונים</a>
-        {next && plan ? <a class="btn" href="#/plan">בתנור</a> : <a class="btn" href="#/new">אפייה חדשה</a>}
-      </div>
+      {history.length > 0 && (
+        <section class="card" aria-label="מה אפיתי לאחרונה" data-testid="recent">
+          <strong>מה אפיתי לאחרונה</strong>
+          {history.slice(0, 3).map((h) => (
+            <div class="row" data-testid="recent-item">
+              <span>{h.title}</span>
+              <span class="muted">
+                {new Date(h.finishedAt).toLocaleDateString('he-IL')}
+                {h.notes?.length ? ` · ${h.notes.length} הערות` : ''}
+                {h.photos?.length ? ` · ${h.photos.length} תמונות` : ''}
+              </span>
+            </div>
+          ))}
+        </section>
+      )}
+
+      <AlarmCheck />
+
       <a href="#/help" style="text-align:center;color:inherit;font-weight:700">עזרה ומדריך</a>
       <a href="#/app" style="text-align:center;color:inherit;font-weight:700">הורדת אפליקציית אנדרואיד</a>
       <a href="#/sync" style="text-align:center;color:inherit;font-weight:700">סנכרון עם Google Drive</a>

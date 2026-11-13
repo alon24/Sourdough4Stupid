@@ -180,6 +180,15 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
         )
       )}
 
+      {isRecipe ? (
+        <section class="card" aria-label="סטארטר במתכון" data-testid="recipe-starter">
+          <strong>כמה סטארטר צריך</strong>
+          <span class="muted">
+            {check.need > 0 ? <>ל־<span class="num">{Math.round(doughG)}</span> ג' בצק צריך כ־<span class="num">{check.need}</span> ג' סטארטר פעיל. </> : null}
+            המתכון קובע כמה סטארטר צריך, בלי קשר לכמה יש לך עכשיו. הבדיקה אם יש מספיק נעשית רק כשמתחילים אפייה.
+          </span>
+        </section>
+      ) : (
       <section class="card" aria-label="כמה סטארטר" data-testid="starter-section">
         <strong>הסטארטר שלי</strong>
         {check.need > 0 && (
@@ -209,7 +218,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
         )}
         {short && (
           <div role="alert" data-testid="starter-warning" class="warn">
-            <strong>צריך להאכיל את הסטארטר לפני: חסרים <span class="num">{Math.round(want - have)}</span> ג'.</strong>
+            <strong>אין לך מספיק סטארטר לתוכנית הזאת: חסרים <span class="num">{Math.round(want - have)}</span> ג'. בוא קודם נייצר.</strong>
             <span>
               לבצק תשים <span class="num">{want}</span> ג' סטארטר מוכן, ויש לך עכשיו <span class="num">{have}</span>. מאכילים אותו (קמח ומים) עד שיהיה מספיק, ואני אתכנן לך את ההאכלות ואת השעות.
               {want > check.need * 1.3 ? <> שים לב: המומלץ ללחם שבחרת הוא רק כ־<span class="num">{check.need}</span> ג'. אם תכתוב {check.need} במקום {want}, יחסר פחות.</> : null}
@@ -240,6 +249,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
           </span>
         )}
       </section>
+      )}
 
       <section class="card" style="padding-block:6px" aria-label="מה אופים" data-testid="items">
         <strong style="padding-top:8px">מה אופים</strong>
