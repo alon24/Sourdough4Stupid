@@ -19,6 +19,10 @@ export interface Starter {
   grams?: number;
   /** reported weak or sluggish: needs strengthening feeds */
   weak?: boolean;
+  /** false or missing until the baker has said what state the starter is in */
+  known?: boolean;
+  /** the baker has no starter yet */
+  none?: boolean;
 }
 
 export interface ActivePlan {
@@ -118,7 +122,7 @@ const initial = (): State => ({
   recipes: [],
   flourPresets: [],
   customFlours: [],
-  starter: { name: 'הסטארטר הקשה שלי', type: 'stiff', hydration: 0.5, lastFedAt: Date.now() - 9 * DAY, inFridge: true },
+  starter: { name: 'הסטארטר הקשה שלי', type: 'stiff', hydration: 0.5, lastFedAt: Date.now(), inFridge: true, known: false },
   plan: null,
   roomTempC: 24,
   history: [],

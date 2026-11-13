@@ -9,12 +9,19 @@ test.beforeEach(async ({ page }) => {
 test('home shows the starter and is right-to-left', async ({ page }) => {
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
   await expect(page.getByRole('heading', { name: 'מה אופים היום?' })).toBeVisible();
-  await expect(page.getByText('רעב כבר 9 ימים')).toBeVisible();
+  await expect(page.getByTestId('starter-ask')).toBeVisible();
 });
 
 test('feeding the starter updates its mood', async ({ page }) => {
+  await page.evaluate(() => {
+    const st = JSON.parse(localStorage.getItem('machmetzet.v1') ?? '{}');
+    st.starter = { name: 'הסטארטר הקשה שלי', type: 'stiff', hydration: 0.5, lastFedAt: Date.now() - 9 * 86_400_000, inFridge: true, known: true };
+    localStorage.setItem('machmetzet.v1', JSON.stringify(st));
+  });
+  await page.reload();
+  await expect(page.getByText('הואכל לפני 9 ימים')).toBeVisible();
   await page.getByRole('button', { name: 'האכלתי עכשיו' }).click();
-  await expect(page.getByText('שבע ומרוצה')).toBeVisible();
+  await expect(page.getByText('הואכל היום')).toBeVisible();
 });
 
 test('calculator matches the spec example for stiff starter', async ({ page }) => {
@@ -343,7 +350,7 @@ test('recipes: create with a managed inclusion, bake from it, and derive a new r
 });
 
 test('starter status questionnaire saves type, place, time and amount', async ({ page }) => {
-  await page.getByRole('link', { name: /מה מצב הסטארטר/ }).click();
+  await page.getByRole('link', { name: /בוא נגדיר|עדכון מצב הסטארטר/ }).click();
   await page.getByRole('button', { name: 'רגיל (100%)' }).click();
   await page.getByRole('button', { name: 'במקרר' }).click();
   await page.getByRole('button', { name: 'חודש', exact: true }).click();
@@ -623,4 +630,19 @@ test('sync screen opens and explains the missing Google id', async ({ page }) =>
   await page.goto('/#/sync');
   await expect(page.getByRole('heading', { name: 'סנכרון עם Google Drive' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'התחברות עם Google' })).toBeDisabled();
+});
+
+test('home: bake status before the starter, the starter is asked about and never called hungry from a guess', async ({ page }) => {
+  await page.goto('/#/');
+  const ask = page.getByTestId('starter-ask');
+  await expect(ask).toContainText('יש לך סטארטר?');
+  await expect(page.getByText(/רעב כבר/)).toHaveCount(0);
+  const status = await page.getByText('אין אפייה בתנור').boundingBox();
+  const starter = await ask.boundingBox();
+  expect(status!.y).toBeLessThan(starter!.y);
+  const recipes = await page.getByRole('link', { name: 'מתכונים' }).first().boundingBox();
+  const fresh = await page.getByRole('link', { name: 'אפייה חדשה' }).boundingBox();
+  expect(Math.abs(recipes!.y - fresh!.y)).toBeLessThan(5);
+  await ask.getByRole('link', { name: 'כן, בוא נגדיר' }).click();
+  await expect(page.getByRole('heading', { name: 'מה מצב הסטארטר?' })).toBeVisible();
 });

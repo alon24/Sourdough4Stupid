@@ -12,7 +12,7 @@ test('walkthrough with screenshots: the reference bake end to end on a phone vie
   await shot(page, '01-home');
 
   // starter status
-  await page.getByRole('link', { name: /מה מצב הסטארטר/ }).click();
+  await page.getByRole('link', { name: /בוא נגדיר|עדכון מצב הסטארטר/ }).click();
   await page.getByRole('button', { name: 'קשה (50%)' }).click();
   await page.getByRole('button', { name: 'במקרר' }).click();
   await page.getByRole('button', { name: 'שבועיים' }).click();
