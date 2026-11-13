@@ -854,3 +854,18 @@ Settings  { defaults, telegramLinked, quietHours, units }
 - Per branch: where it is (as planned, fridge, proofing on the counter, bake now), weight (loaf) or count (rolls), a note, alarms on or off, add or remove a loaf. Only that branch is re-timed; changing a weight recomputes the rolls.
 - A free step or note can be added anywhere, and every step can carry a personal note. Notes go to the bake journal; changing pieces offers "derive a new recipe".
 - Plan list is layout-stable: no forced scrolling, a "jump to current step" button appears when the current step is off screen.
+
+## 4.18 What to bake: items and starter need
+
+The new-bake screen is an item manager, not a fixed loaves-and-rolls choice. Items: country loaf, pan loaf, rolls, pizza, bagels, or a custom item you name. Each has a count, a weight per piece and a starter share. The first item is one 1 kg loaf (the default loaf is a kilo and the count starts at 1).
+
+Assumptions (editable per item in the screen; defaults in `core/src/items.ts`):
+- Rule of thumb: about 100 g of starter per kg of dough (10% of dough weight, roughly 20% of the flour).
+- Country loaf 10%, pan loaf 12%, rolls 12%, bagels 10% (same-day or a shorter rise needs more), pizza 6% (long cold ferment, thin crust), custom 10%. Typical range in sourdough baking is 10-20% levain of the flour weight, i.e. roughly 6-12% of the dough.
+- More starter shortens the bulk by about 1/sqrt(starter), the same model the plan uses.
+
+Checks against the starter on hand:
+- Less than 90% of the need: a warning with the shortfall and a build-up plan (existing feeding chain).
+- More than 1.5 times the need: "are you sure about the starter amount?", with the normal amount and a stronger one (150%) showing what is left over and how much faster the rise is.
+- In between: confirmation of the amount.
+Non-loaf items share one "rolls" branch in the plan, named after the item (pizza, bagels...), with that item's bake note.

@@ -43,7 +43,7 @@ export function withTracks(steps: Step[], input: PlanInput, total: number): { st
     branches.push({ id: `L${i + 1}`, kind: 'loaf', label: loafLabel(i + 1, many), count: 1, weight: sp.loafWeight, where: 'plan', note: '', baseAt: 0 });
   }
   if (input.rolls > 0) {
-    branches.push({ id: 'rolls', kind: 'rolls', label: 'לחמניות', count: input.rolls, weight: sp.rollWeight, where: 'plan', note: '', baseAt: 0 });
+    branches.push({ id: 'rolls', kind: 'rolls', label: input.rollsName ?? 'לחמניות', count: input.rolls, weight: sp.rollWeight, where: 'plan', note: '', baseAt: 0 });
   }
   for (const s of steps) {
     if (LOAF_KINDS.includes(s.kind) && !(s.kind === 'preheat' && input.loaves === 0)) {
@@ -99,7 +99,7 @@ export function resplit(steps: Step[], branches: Branch[], total: number): { ste
     branches: branches.map((b) => (b.kind === 'rolls' ? { ...b, weight: w } : b)),
     steps: steps.map((s) => s.kind !== 'shapeRolls' || s.doneAt !== undefined ? s : {
       ...s,
-      title: `לעצב ${rolls.count} לחמניות (${g} ג' כל אחת)`,
+      title: `לעצב ${rolls.count} ${rolls.label} (${g} ג' כל אחת)`,
       note: s.note?.replace(/^לחתוך \d+ חתיכות של כ־\d+ ג'/, `לחתוך ${rolls.count} חתיכות של כ־${g} ג'`),
     }),
   };
@@ -157,6 +157,6 @@ export function branchSummary(branches: Branch[]): string {
   const same = loaves.every((b) => b.weight === loaves[0]?.weight);
   return [
     loaves.length > 0 && (same ? `${loaves.length} כיכרות × ${Math.round(loaves[0]!.weight)} ג'` : loaves.map((b) => `${Math.round(b.weight)} ג'`).join(' + ')),
-    rolls && `${rolls.count} לחמניות × ${Math.round(rolls.weight)} ג'`,
+    rolls && `${rolls.count} ${rolls.label} × ${Math.round(rolls.weight)} ג'`,
   ].filter(Boolean).join(' + ');
 }

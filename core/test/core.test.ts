@@ -762,3 +762,30 @@ describe('temperature targets', () => {
     expect(fridgeTip(4)).toContain('בטווח');
   });
 });
+
+import { DEFAULT_ITEM_TYPES, itemFrom, speedPct, starterCheck, starterNeed } from '../src/index.js';
+describe('items and starter need', () => {
+  const t = (id: string) => DEFAULT_ITEM_TYPES.find((x) => x.id === id)!;
+  it('a 1 kg loaf needs about 100 g of starter', () => {
+    expect(starterNeed([itemFrom(t('loaf'))]).grams).toBeCloseTo(100, 0);
+    expect(starterNeed([itemFrom(t('loaf'), 3)]).dough).toBe(3000);
+  });
+  it('200 g on hand for one loaf is too much: offers the normal and a stronger amount with leftovers', () => {
+    const c = starterCheck([itemFrom(t('loaf'))], 200);
+    expect(c.status).toBe('lots');
+    expect(c.need).toBe(100);
+    expect(c.options[0]).toMatchObject({ grams: 100, leftover: 100 });
+    expect(c.options[1]).toMatchObject({ grams: 150, leftover: 50 });
+    expect(c.options[1]!.speedPct).toBeGreaterThan(0);
+  });
+  it('3 loaves from 100 g is a shortfall', () => {
+    const c = starterCheck([itemFrom(t('loaf'), 3)], 100);
+    expect(c.status).toBe('short');
+    expect(c.shortBy).toBe(200);
+  });
+  it('pizza needs less than bread per kg of dough, and a normal amount is ok', () => {
+    expect(starterNeed([itemFrom(t('pizza'), 4)]).grams).toBeLessThan(starterNeed([itemFrom(t('loaf'))]).grams);
+    expect(starterCheck([itemFrom(t('loaf'))], 110).status).toBe('ok');
+    expect(speedPct(150, 100)).toBe(22);
+  });
+});

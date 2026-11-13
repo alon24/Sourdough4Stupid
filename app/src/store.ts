@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { alarmOps, type PlanInput, registerFlours, type FlourInfo, type AlarmOp, type Reading, type Step, type Branch, type StarterType } from '../../core/src/index';
+import { alarmOps, type PlanInput, registerFlours, type FlourInfo, type AlarmOp, type Reading, type Step, type Branch, type Item, type StarterType } from '../../core/src/index';
 
 /** Provided by the Android wrapper (real alarm clock). Absent in the browser. */
 declare global {
@@ -95,6 +95,8 @@ export interface Recipe {
   hydration: number;
   /** flour mix as grams per flour */
   mix: { flour: string; grams: number }[];
+  /** what the bake makes: loaves, rolls, pizza and so on, with each item's starter share */
+  items?: Item[];
 }
 
 export const DEFAULT_INCLUSIONS: InclusionDef[] = [
