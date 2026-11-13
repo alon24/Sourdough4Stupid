@@ -9,8 +9,8 @@ export function Home() {
   const { starter, plan } = useStore();
   const days = daysSinceFed(starter);
   const next = plan?.steps.find((s) => s.doneAt === undefined);
-  const mood =
-    days === 0 ? 'שבע ומרוצה' : days === 1 ? 'אכל אתמול' : `רעב כבר ${days} ימים`;
+  const known = starter.known === true;
+  const mood = days === 0 ? 'הואכל היום' : days === 1 ? 'הואכל אתמול' : `הואכל לפני ${days} ימים`;
   const advice = !starter.inFridge
     ? 'בחוץ ופעיל.'
     : days > 30
@@ -18,6 +18,7 @@ export function Home() {
       : days > 14
         ? 'במקרר. האכלת חיזוק אחת לפני האפייה.'
         : 'במקרר. האכלה אחת והוא חוזר לעניינים.';
+  const markFed = (p: object) => setState({ starter: { ...starter, known: true, none: false, ...p } });
 
   return (
     <main>
@@ -28,21 +29,6 @@ export function Home() {
         </div>
         <span class="muted" data-testid="version" style="direction:ltr;font-size:12px;white-space:nowrap">v{__APP_VERSION__}{isApk ? ' · APK' : ''}</span>
       </div>
-
-      <section class="card sun" aria-label="הסטארטר שלי">
-        <span class="sub">{starter.name}</span>
-        <span class="big">{mood}</span>
-        <span>{advice}</span>
-        <div class="row" style="justify-content:flex-start;flex-wrap:wrap">
-          <button class="btn primary small" onClick={() => setState({ starter: { ...starter, lastFedAt: Date.now(), inFridge: false } })}>
-            האכלתי עכשיו
-          </button>
-          <button class="btn small" style="border-color:#2B1D3A;color:#2B1D3A" onClick={() => setState({ starter: { ...starter, inFridge: !starter.inFridge } })}>
-            {starter.inFridge ? 'הוצאתי מהמקרר' : 'הכנסתי למקרר'}
-          </button>
-        </div>
-        <a class="btn small" href="#/starter" style="color:#2B1D3A;border-color:#2B1D3A">מה מצב הסטארטר? (שאלון קצר)</a>
-      </section>
 
       {next && plan ? (
         <a class="card" href="#/plan" style="text-decoration:none;color:inherit" aria-label="השלב הבא">
@@ -65,9 +51,41 @@ export function Home() {
 
       <AlarmCheck />
 
+      {!known && !starter.none ? (
+        <section class="card sun" aria-label="הסטארטר שלי" data-testid="starter-ask">
+          <span class="sub">הסטארטר</span>
+          <span class="big">יש לך סטארטר?</span>
+          <span>כמה שאלות קצרות: איפה הוא, מתי האכלת, ובאיזה מצב. משם האפליקציה מחשבת הכול.</span>
+          <a class="btn primary small" href="#/starter">כן, בוא נגדיר</a>
+          <button class="btn small" style="border-color:#2B1D3A;color:#2B1D3A" onClick={() => setState({ starter: { ...starter, none: true } })}>אין לי עדיין</button>
+        </section>
+      ) : starter.none ? (
+        <section class="card" aria-label="הסטארטר שלי">
+          <span class="sub">הסטארטר</span>
+          <span class="big">אין סטארטר עדיין</span>
+          <span class="muted">אפשר להכין אחד מקמח ומים בכמה ימים. כשיש, מגדירים אותו כאן.</span>
+          <a class="btn small" href="#/starter">יש לי סטארטר עכשיו</a>
+        </section>
+      ) : (
+        <section class="card sun" aria-label="הסטארטר שלי">
+          <span class="sub">{starter.name}</span>
+          <span class="big">{mood}</span>
+          <span>{advice}</span>
+          <div class="row" style="justify-content:flex-start;flex-wrap:wrap">
+            <button class="btn primary small" onClick={() => markFed({ lastFedAt: Date.now(), inFridge: false })}>
+              האכלתי עכשיו
+            </button>
+            <button class="btn small" style="border-color:#2B1D3A;color:#2B1D3A" onClick={() => markFed({ inFridge: !starter.inFridge })}>
+              {starter.inFridge ? 'הוצאתי מהמקרר' : 'הכנסתי למקרר'}
+            </button>
+          </div>
+          <a class="btn small" href="#/starter" style="color:#2B1D3A;border-color:#2B1D3A">עדכון מצב הסטארטר</a>
+        </section>
+      )}
+
       <div class="grid2">
-        <a class="btn primary" href="#/new" style="display:flex;align-items:center;justify-content:center;text-decoration:none">אפייה חדשה</a>
-        <a class="btn" href="#/recipes" style="display:flex;align-items:center;justify-content:center;text-decoration:none;color:inherit">מתכונים</a>
+        <a class="btn primary" href="#/recipes">מתכונים</a>
+        {next && plan ? <a class="btn" href="#/plan">בתנור</a> : <a class="btn" href="#/new">אפייה חדשה</a>}
       </div>
       <a href="#/help" style="text-align:center;color:inherit;font-weight:700">עזרה ומדריך</a>
       <a href="#/app" style="text-align:center;color:inherit;font-weight:700">הורדת אפליקציית אנדרואיד</a>

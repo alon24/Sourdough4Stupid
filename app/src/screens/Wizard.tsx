@@ -46,6 +46,9 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
   const [cold, setCold] = useState(initial?.cold ?? true);
   const [blendIdx, setBlendIdx] = useState(0);
   const [hydration, setHydration] = useState(initial?.hydration ?? 0.72);
+  const [mixOk, setMixOk] = useState(true);
+  /** bumped when a mix is loaded from outside (saved mix, recipe) so the editor restarts from it */
+  const [mixEpoch, setMixEpoch] = useState(0);
   const [mix, setMix] = useState<MixItem[] | null>(initial?.mix ?? null);
   const [presetId, setPresetId] = useState<string | null>(null);
   const preset = flourPresets.find((p) => p.id === presetId);
@@ -72,6 +75,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
       if (!p) return;
       follow(mixToBlend(p.items));
       setMix(p.items);
+      setMixEpoch((e) => e + 1);
       setPresetId(p.id);
     } else if (v !== 'custom') pickBlend(+v);
   };
@@ -95,7 +99,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
 
   const load = (r: Recipe) => {
     setLoaves(r.loaves); setRolls(r.rolls); setWeight(r.weight); setShape(r.shape); setPicked(r.inclusions);
-    setKneading(r.kneading); setCold(r.cold); setFolds(r.folds ?? 4); setFoldGap(r.foldGapMin ?? 0); setAutolyse(r.autolyse ?? true); setEnrich(r.rollEnrich ?? 'none'); setHydration(r.hydration); setMix(r.mix);
+    setKneading(r.kneading); setCold(r.cold); setFolds(r.folds ?? 4); setFoldGap(r.foldGapMin ?? 0); setAutolyse(r.autolyse ?? true); setEnrich(r.rollEnrich ?? 'none'); setHydration(r.hydration); setMix(r.mix); setMixEpoch((e) => e + 1);
   };
   const saveRecipe = () => {
     const items = mix ?? blend.map((b) => ({ flour: b.id, grams: Math.round(b.pct * 1000) }));
@@ -277,7 +281,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
         </button>
       )}
       {mix ? (
-        <FlourMix items={mix} onChange={changeMix} onSaved={setPresetId} />
+        <FlourMix key={mixEpoch} items={mix} onChange={changeMix} onSaved={setPresetId} onValidity={setMixOk} />
       ) : (
         <button class="btn small" onClick={startMix}>הרכב קמחים משלי</button>
       )}
@@ -353,12 +357,12 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
         </section>
       )}
       {isRecipe ? (
-        <button class="btn primary" style="margin-top:auto;font-size:19px" disabled={nothing || !name.trim()} onClick={saveRecipe}>
-          {!name.trim() ? 'צריך שם למתכון' : 'שמור מתכון'}
+        <button class="btn primary" style="margin-top:auto;font-size:19px" disabled={nothing || !name.trim() || (!!mix && !mixOk)} onClick={saveRecipe}>
+          {!name.trim() ? 'צריך שם למתכון' : mix && !mixOk ? 'הקמחים צריכים להגיע ל־100%' : 'שמור מתכון'}
         </button>
       ) : (
-        <button class="btn primary" style="margin-top:auto;font-size:19px" disabled={nothing} onClick={go}>
-          {nothing ? 'צריך לבחור לפחות לחם אחד' : 'יאללה, תתכנן לי'}
+        <button class="btn primary" style="margin-top:auto;font-size:19px" disabled={nothing || (!!mix && !mixOk)} onClick={go}>
+          {nothing ? 'צריך לבחור לפחות לחם אחד' : mix && !mixOk ? 'הקמחים צריכים להגיע ל־100%' : 'יאללה, תתכנן לי'}
         </button>
       )}
     </main>

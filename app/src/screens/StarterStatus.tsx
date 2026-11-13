@@ -60,6 +60,8 @@ export function StarterStatus() {
         lastFedAt: Date.now() - fedAgo,
         grams: grams!,
         weak: cond === 'weak',
+        known: true,
+        none: false,
       },
     });
     location.hash = '#/';
