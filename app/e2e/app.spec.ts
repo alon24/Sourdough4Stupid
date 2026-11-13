@@ -10,7 +10,11 @@ async function goStep(page: import('@playwright/test').Page, n: number) {
     const text = await ind.textContent({ timeout: 1000 }).catch(() => null);
     if (text === null) return;
     const cur = Number(/שלב (\d)/.exec(text)?.[1]);
-    if (cur === n) return;
+    if (cur === n) {
+      if (n === 3) await page.getByRole('button', { name: 'ערוך קמחים' }).click({ timeout: 300 }).catch(() => undefined);
+      if (n === 4) await page.locator('details.adv:not([open]) > summary').click({ timeout: 300 }).catch(() => undefined);
+      return;
+    }
     await page.getByRole('button', { name: cur < n ? /^הבא/ : 'הקודם' }).first().click({ timeout: 3000 }).catch(() => undefined);
   }
 }
@@ -208,7 +212,7 @@ test('starting from starter: 300 g wanted, 30 g in the fridge', async ({ page })
   await page.getByLabel('יש לי עכשיו (גרם)').fill('30');
   await expect(page.getByTestId('chain')).toContainText('2 האכלות');
   await goStep(page, 4);
-  await page.getByRole('button', { name: /צריך להגדיל את הסטארטר/ }).click();
+  await page.getByRole('button', { name: /תכנן לי האכלות/ }).click();
   await goStep(page, 4);
   await page.getByRole('button', { name: 'אישור, ממשיכים לתוכנית' }).click();
   await expect(page.getByRole('button', { name: /האכלה 1 מתוך 2/ })).toBeVisible();
@@ -495,6 +499,7 @@ test('a named flour mix goes straight into the flour dropdown, is selected, and 
   await expect(dd.locator('option', { hasText: 'הרכב הבית' })).toHaveCount(1);
   await expect(dd.locator('option:checked')).toHaveText('הרכב הבית');
   await page.reload();
+  await goStep(page, 3);
   await expect(dd.locator('option', { hasText: 'הרכב הבית' })).toHaveCount(1);
   await goStep(page, 3);
   await dd.selectOption({ label: 'לבן' });
@@ -538,7 +543,7 @@ test('reference bake: 32 g stiff, 300 g tomorrow, 2 loaves of 1 kg + rolls, spli
   await page.getByRole('button', { name: /הכול יחד/ }).click();
   await page.getByRole('combobox', { name: 'העשרת הלחמניות' }).selectOption('oil');
   await goStep(page, 4);
-  const feed = page.getByRole('button', { name: /צריך להגדיל את הסטארטר/ });
+  const feed = page.getByRole('button', { name: /תכנן לי האכלות/ });
   if (await feed.count()) { await feed.click(); await page.getByRole('button', { name: 'אישור, ממשיכים לתוכנית' }).click(); } else await startBake(page);
   await expect(page.getByTestId('split')).toContainText('שתי כיכרות × 1000');
   await expect(page.getByTestId('split')).toContainText('7 לחמניות');
@@ -825,7 +830,7 @@ test('items and starter need: a kilo loaf defaults to 1, 200 g on hand asks if s
   await goStep(page, 1);
   await page.getByRole('button', { name: 'הסר בריוש' }).click();
   await goStep(page, 4);
-  const feed = page.getByRole('button', { name: /צריך להגדיל את הסטארטר/ });
+  const feed = page.getByRole('button', { name: /תכנן לי האכלות/ });
   if (await feed.count()) { await feed.click(); await page.getByRole('button', { name: 'אישור, ממשיכים לתוכנית' }).click(); } else await startBake(page);
   await expect(page.getByTestId('split')).toContainText('פיצה');
   await expect(page.getByRole('button', { name: /לאפות פיצה/ })).toBeVisible();
@@ -885,11 +890,11 @@ test('starter explanations: the need is spelled out, the shortfall says what to 
   await page.getByLabel('כמה סטארטר לשים בבצק (גרם)').fill('200');
   const w = page.getByTestId('starter-warning');
   await expect(w).toContainText('חסרים 170');
-  await expect(w).toContainText('המומלץ ללחם שבחרת הוא רק כ־90');
+  await expect(w).toContainText('רק ב־90');
   await w.getByRole('button', { name: /השתמש רק ב־90/ }).click();
   await goStep(page, 4);
   await expect(page.getByTestId('starter-warning')).toContainText('חסרים 60');
-  await page.getByRole('button', { name: 'תכנן לי את ההאכלות' }).click();
+  await page.getByRole('button', { name: 'תכנן לי האכלות' }).click();
   await goStep(page, 4);
   await page.getByRole('button', { name: 'אישור, ממשיכים לתוכנית' }).click();
   await expect(page.getByRole('heading', { name: 'התוכנית שלך' })).toBeVisible();
@@ -998,7 +1003,7 @@ test('recipe editing never depends on the starter I have: no stock fields or war
   await goStep(page, 4);
   await page.getByLabel('יש לי עכשיו (גרם)').fill('100');
   await goStep(page, 4);
-  await expect(page.getByTestId('starter-warning')).toContainText('אין לך מספיק סטארטר לתוכנית הזאת');
+  await expect(page.getByTestId('starter-warning')).toContainText('חסרים');
 });
 
 test('starter status accepts typed values: hydration, grams, time in the fridge in weeks', async ({ page }) => {
@@ -1077,6 +1082,7 @@ test('two bakes at once: both on home, switch between them, alarms carry the bak
   expect(sets.every((o) => o.title!.includes(' · '))).toBe(true);
   // open the second one and cancel it: the first stays
   await page.getByTestId('running').nth(1).getByRole('link').click();
+  await expect(page.getByRole('heading', { name: 'התוכנית שלך' })).toBeVisible();
   await page.getByRole('button', { name: 'בטל אפייה' }).click();
   await page.getByRole('button', { name: 'בטל ושמור ביומן' }).click();
   await page.goto('/#/');
@@ -1207,8 +1213,13 @@ test('not enough starter blocks the start: choose to feed first or confirm you a
   await page.goto('/#/new');
   await goStep(page, 4);
   await page.getByLabel('יש לי עכשיו (גרם)').fill('30');
-  const go = page.getByRole('button', { name: /אין מספיק סטארטר: בחר/ });
-  await expect(go).toBeDisabled();
+  // the main button follows the situation: it leads to the feeding plan, it is not blocked
+  const go = page.getByRole('button', { name: 'להמשיך לתכנון ההאכלות' });
+  await expect(go).toBeEnabled();
+  await go.click();
+  await expect(page.getByTestId('feed-plan')).toBeVisible();
+  await expect(page).toHaveURL(/#\/new/);
+  await page.getByRole('button', { name: 'חזרה' }).click();
   await goStep(page, 4);
   await expect(page.getByTestId('starter-warning')).toContainText('חסרים');
   // the ready checkbox uses the same confirmation, it does not skip the check
@@ -1216,7 +1227,7 @@ test('not enough starter blocks the start: choose to feed first or confirm you a
   await page.getByLabel('הסטארטר כבר מוכן ועל השיא').click();
   await goStep(page, 4);
   await expect(page.getByTestId('enough-confirm')).toBeVisible();
-  await expect(go).toBeDisabled();
+  await expect(page.getByTestId('starter-warning')).toBeVisible(); // still short until a real amount is typed
   await goStep(page, 4);
   await page.getByLabel('כמה סטארטר מוכן יש לך').fill('50');
   await goStep(page, 4);
@@ -1240,7 +1251,7 @@ test('not enough starter: feeding first shows the feeding plan and waits for a g
   await goStep(page, 4);
   await page.getByLabel('יש לי עכשיו (גרם)').fill('30');
   await goStep(page, 4);
-  await page.getByRole('button', { name: /צריך להגדיל את הסטארטר/ }).click();
+  await page.getByRole('button', { name: /תכנן לי האכלות/ }).click();
   await expect(page).toHaveURL(/#\/new/);
   const fp = page.getByTestId('feed-plan');
   await expect(fp).toBeVisible();
@@ -1258,7 +1269,7 @@ test('not enough starter: feeding first shows the feeding plan and waits for a g
   await goStep(page, 4);
   await expect(page.getByTestId('feed-plan')).toHaveCount(0);
   await goStep(page, 4);
-  await page.getByRole('button', { name: /צריך להגדיל את הסטארטר/ }).click();
+  await page.getByRole('button', { name: /תכנן לי האכלות/ }).click();
   await goStep(page, 4);
   await page.getByRole('button', { name: 'אישור, ממשיכים לתוכנית' }).click();
   await expect(page.getByRole('heading', { name: 'התוכנית שלך' })).toBeVisible();
@@ -1320,6 +1331,10 @@ test('flows 2: a new bake is four steps (what, when, adjustments, summary with t
   await expect(page.getByLabel('יוצא מהתנור')).toBeVisible();
   await page.getByRole('button', { name: /^הבא/ }).click();
   await expect(ind).toContainText('שלב 3');
+  // the flour is one short line, the editor is behind "ערוך"
+  await expect(page.getByTestId('flour-summary')).toContainText('לבן');
+  await expect(page.getByRole('combobox', { name: 'קמח' })).toBeHidden();
+  await page.getByRole('button', { name: 'ערוך קמחים' }).click();
   await expect(page.getByRole('combobox', { name: 'קמח' })).toBeVisible();
   await page.getByRole('button', { name: /^הבא/ }).click();
   await expect(ind).toContainText('שלב 4');

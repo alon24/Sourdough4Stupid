@@ -9,7 +9,11 @@ async function goStep(page: import('@playwright/test').Page, n: number) {
     const text = await ind.textContent({ timeout: 1000 }).catch(() => null);
     if (text === null) return;
     const cur = Number(/שלב (\d)/.exec(text)?.[1]);
-    if (cur === n) return;
+    if (cur === n) {
+      if (n === 3) await page.getByRole('button', { name: 'ערוך קמחים' }).click({ timeout: 300 }).catch(() => undefined);
+      if (n === 4) await page.locator('details.adv:not([open]) > summary').click({ timeout: 300 }).catch(() => undefined);
+      return;
+    }
     await page.getByRole('button', { name: cur < n ? /^הבא/ : 'הקודם' }).first().click({ timeout: 3000 }).catch(() => undefined);
   }
 }
@@ -73,7 +77,7 @@ test('walkthrough with screenshots: the reference bake end to end on a phone vie
   await expect(page.locator('label.field', { hasText: /^קמח/ }).locator('select').first().locator('option:checked')).toHaveText('לבן וטיפו');
   await shot(page, '03-wizard');
   await goStep(page, 4);
-  const feed = page.getByRole('button', { name: /צריך להגדיל את הסטארטר/ });
+  const feed = page.getByRole('button', { name: /תכנן לי האכלות/ });
   if (await feed.count()) { await feed.click(); await page.getByRole('button', { name: 'אישור, ממשיכים לתוכנית' }).click(); } else await startBake(page);
 
   // plan
