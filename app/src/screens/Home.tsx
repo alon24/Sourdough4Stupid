@@ -1,14 +1,14 @@
 import { Capacitor } from '@capacitor/core';
-import { AlarmCheck } from './Alarms';
 import { dayName, hhmm, until } from '../format';
-import { allPlans, daysSinceFed, planId, selectPlan, setState, useStore } from '../store';
+import { type ActivePlan, allPlans, daysSinceFed, planId, selectPlan, setState, useStore } from '../store';
 
 const isApk = Capacitor.isNativePlatform();
 
 export function Home() {
   const st = useStore();
   const { starter, history } = st;
-  const running = allPlans(st).filter((p) => p.steps.some((s) => s.doneAt === undefined));
+  const nextAt = (p: ActivePlan) => p.steps.find((s) => s.doneAt === undefined)!.at;
+  const running = allPlans(st).filter((p) => p.steps.some((s) => s.doneAt === undefined)).sort((a, b) => nextAt(a) - nextAt(b));
   const days = daysSinceFed(starter);
   const known = starter.known === true;
   const mood = days === 0 ? 'הואכל היום' : days === 1 ? 'הואכל אתמול' : `הואכל לפני ${days} ימים`;
@@ -37,10 +37,11 @@ export function Home() {
           {running.map((plan) => {
             const next = plan.steps.find((s) => s.doneAt === undefined)!;
             const done = plan.steps.filter((x) => x.doneAt !== undefined).length;
+            const waiting = next.at - Date.now() > 12 * 3_600_000;
             return (
-              <a class="card sun running" href="#/plan" onClick={() => selectPlan(planId(plan))} style="text-decoration:none;color:inherit" aria-label={`אפייה רצה: ${plan.title}`} data-testid="running">
+              <a class={`card ${waiting ? 'pending' : 'sun'} running`} href="#/plan" onClick={() => selectPlan(planId(plan))} style="text-decoration:none;color:inherit" aria-label={`אפייה רצה: ${plan.title}`} data-testid="running">
                 <div class="row">
-                  <span class="sub">▶ אפייה רצה עכשיו · {plan.title}</span>
+                  <span class="sub">{waiting ? '⏳ ממתינה לשלב הראשון' : '▶ רצה עכשיו'} · {plan.title}</span>
                   <span class="tag">{until(next.at)}</span>
                 </div>
                 <span class="muted">השלב הבא</span>
@@ -64,7 +65,6 @@ export function Home() {
         <a class="btn" href="#/recipes">📖 מתכונים</a>
         <a class="btn primary" href="#/new">🍞 להתחיל אפייה</a>
       </div>
-      <span class="muted" style="text-align:center;font-size:13px">מתכונים: התבניות השמורות שלך. להתחיל אפייה: בוחרים מה אופים ומתי, והתוכנית מסתדרת.</span>
 
       {!known && !starter.none ? (
         <section class="card sun" aria-label="הסטארטר שלי" data-testid="starter-ask">
@@ -117,11 +117,6 @@ export function Home() {
         </section>
       )}
 
-      <AlarmCheck />
-
-      <a href="#/help" style="text-align:center;color:inherit;font-weight:700">עזרה ומדריך</a>
-      <a href="#/app" style="text-align:center;color:inherit;font-weight:700">הורדת אפליקציית אנדרואיד</a>
-      <a href="#/sync" style="text-align:center;color:inherit;font-weight:700">סנכרון עם Google Drive</a>
     </main>
   );
 }

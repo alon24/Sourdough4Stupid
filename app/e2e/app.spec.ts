@@ -159,6 +159,7 @@ test('alarm changes reach the native alarm clock', async ({ page }) => {
 });
 
 test('help page renders the guide and anchors scroll', async ({ page }) => {
+  await page.goto('/#/more');
   await page.getByRole('link', { name: 'עזרה ומדריך' }).click();
   await expect(page.getByRole('heading', { name: 'מדריך עזרה: מחמצת לעד' })).toBeVisible();
   await page.locator('a[data-anchor]').first().click();
@@ -444,7 +445,7 @@ test('apk link is a plain download link, the service worker leaves .apk alone, a
   await expect(link).toHaveAttribute('href', /machmetzet\.apk$/);
   await expect(page.getByTestId('qr').locator('svg path')).toHaveCount(1);
   await expect(page.getByText('איך מתקינים')).toBeVisible();
-  await page.goto('/#/');
+  await page.goto('/#/more');
   await page.getByRole('link', { name: 'הורדת אפליקציית אנדרואיד' }).click();
   await expect(page.getByRole('heading', { name: 'האפליקציה לאנדרואיד' })).toBeVisible();
   const sw = await (await request.get('/sw.js')).text();
@@ -529,7 +530,7 @@ const seedPlanWithDueStep = async (page: import('@playwright/test').Page) => {
   });
 };
 
-const TAB_ROUTES: [string, RegExp][] = [['אפיות', /#\/plan$/], ['התחלה', /#\/new$/], ['מתכונים', /#\/recipes$/], ['מחשבון', /#\/calc$/], ['בית', /#\/$/]];
+const TAB_ROUTES: [string, RegExp][] = [['אפיות', /#\/plan$/], ['מתכונים', /#\/recipes$/], ['יומן', /#\/log$/], ['עוד', /#\/more$/], ['בית', /#\/$/]];
 
 test('tabs work with an overdue step, granted notifications that throw, and a tall toast (tapped like a phone)', async ({ page }) => {
   const errors: string[] = [];
@@ -558,7 +559,8 @@ test('a screen that throws shows a message and the tabs keep working', async ({ 
   await page.goto('/#/plan');
   await page.reload();
   await expect(page.getByText('משהו השתבש במסך הזה')).toBeVisible();
-  await page.locator('nav.tabs').getByText('מחשבון', { exact: true }).tap();
+  await page.locator('nav.tabs').getByText('עוד', { exact: true }).tap();
+  await page.getByRole('link', { name: 'מחשבון סטארטר' }).tap();
   await expect(page.getByRole('heading', { name: 'כמה להאכיל?' })).toBeVisible();
   await page.locator('nav.tabs').getByText('מתכונים', { exact: true }).tap();
   await expect(page.getByRole('heading', { name: 'מתכונים', exact: true })).toBeVisible();
@@ -812,7 +814,7 @@ test('scenario 3, checking a running bake: home says a plan is running, shows th
   await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
   await page.goto('/#/');
   const run = page.getByTestId('running');
-  await expect(run).toContainText('אפייה רצה עכשיו');
+  await expect(run).toContainText('רצה עכשיו');
   await expect(run).toContainText('השלב הבא');
   await expect(run).toContainText(/שלב 1 מתוך \d+/);
   await run.click();
@@ -1118,4 +1120,30 @@ test('flour mix fits a narrow phone: nothing in the card, including the custom f
     els.filter((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && (r.right > innerWidth + 0.5 || r.left < -0.5); }).map((e) => e.tagName + ':' + (e.getAttribute('aria-label') ?? e.textContent?.slice(0, 20))));
   expect(over).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('flows 1: two bakes get different names, a far-off bake says it is waiting, back goes where you came from, the tabs are home, bakes, recipes, log, more', async ({ page }) => {
+  await page.goto('/#/new');
+  await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
+  await page.goto('/#/new');
+  await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
+  await page.goto('/#/');
+  const titles = await page.getByTestId('running').locator('.sub').allInnerTexts();
+  expect(titles.length).toBe(2);
+  expect(new Set(titles).size).toBe(2);
+  expect(titles.join(' ')).not.toContain('לחמים');
+  const nav = page.locator('nav.tabs');
+  await expect(nav.getByText('התחלה')).toHaveCount(0);
+  for (const t of ['בית', 'אפיות', 'מתכונים', 'יומן', 'עוד']) await expect(nav.getByText(t, { exact: true })).toBeVisible();
+  // back returns to the screen you came from
+  await page.goto('/#/recipes');
+  await page.getByRole('link', { name: 'מתכון חדש' }).click();
+  await expect(page).toHaveURL(/#\/recipe$/);
+  await page.getByRole('button', { name: 'למסך הקודם' }).click();
+  await expect(page).toHaveURL(/#\/recipes$/);
+  // a screen opened directly falls back to its tab
+  const fresh = await page.context().newPage();
+  await fresh.goto('/#/calc');
+  await fresh.getByRole('button', { name: 'למסך הקודם' }).click();
+  await expect(fresh).toHaveURL(/#\/more$/);
 });

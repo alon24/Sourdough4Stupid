@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-const ROUTES = ['#/', '#/plan', '#/new', '#/recipes', '#/recipe', '#/calc', '#/help', '#/app', '#/starter', '#/start'];
+const ROUTES = ['#/', '#/more', '#/log', '#/plan', '#/new', '#/recipes', '#/recipe', '#/calc', '#/help', '#/app', '#/starter', '#/start'];
 const SIZES = [{ width: 360, height: 640 }, { width: 390, height: 844 }];
 
 for (const size of SIZES) {

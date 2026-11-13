@@ -5,9 +5,9 @@ import {
 } from '../../../core/src/index';
 import { toActive } from '../activePlan';
 import { FlourMix, mixToBlend, type MixItem } from './FlourMix';
-import { dayName, hhmm, toLocalInput } from '../format';
+import { dayName, hhmm, loavesText, shortDate, toLocalInput } from '../format';
 import { InclusionsEditor } from './InclusionsEditor';
-import { addPlan, daysSinceFed, setState, useStore, type Recipe } from '../store';
+import { addPlan, allPlans, daysSinceFed, getState, setState, useStore, type Recipe } from '../store';
 
 const WEIGHTS = [750, 900, 1000, 1200];
 
@@ -174,8 +174,12 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
       ...(enrich !== 'none' && rolls > 0 ? { rollEnrich: enrich } : {}),
       ...(starterMode && !ready ? { overnightFeed: overnight } : {}), ...(starterMode ? { useAllStarter: true } : {}),
     };
-    const parts = [loaves && `${loaves} לחמים`, rolls && `${rolls} ${rollsName}`, ...picked].filter(Boolean);
-    const act = toActive(plan(input), input, parts.join(' · '));
+    const parts = [loaves && loavesText(loaves), rolls && `${rolls} ${rollsName}`, ...picked].filter(Boolean);
+    const base = `${initial?.name ?? parts.join(' · ')}, ${shortDate(at)}`;
+    const taken = new Set(allPlans(getState()).map((p) => p.title));
+    let title = base;
+    for (let n = 2; taken.has(title); n++) title = `${base} (${n})`;
+    const act = toActive(plan(input), input, title);
     addPlan({ ...act, ...(combo.notes.length ? { splitNotes: combo.notes } : {}), ...(initial ? { recipeId: initial.id } : {}) });
     location.hash = '#/plan';
   };
