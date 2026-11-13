@@ -158,3 +158,5 @@ textarea { font: inherit; color: inherit; background: transparent; border: 2px s
 .customrow > span { min-width: 0; overflow-wrap: anywhere; }
 .mixcard { min-width: 0; }
 .mixcard .row { flex-wrap: wrap; }
+button.back { align-self: flex-start; margin: 8px 16px 0; background: none; border: 0; font: inherit; font-weight: 700; color: var(--ink); min-height: 44px; padding: 0 8px; cursor: pointer; }
+.pending { background: var(--card); }
