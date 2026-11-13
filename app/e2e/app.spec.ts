@@ -268,11 +268,13 @@ const minutesLeft = async (page: import('@playwright/test').Page) => {
 test('before the bulk, the app suggests a water temperature', async ({ page }) => {
   await page.goto('/#/new');
   await startBake(page);
+  await page.getByTestId('open-temp').click();
   await expect(page.getByTestId('water-tip')).toContainText('מים בכ־');
 });
 
 test('warm dough shortens the remaining bulk, cold dough lengthens it, and advice is shown', async ({ page }) => {
   await planWithBulkRunning(page);
+  await page.getByTestId('open-temp').click();
   const base = await minutesLeft(page);
   expect(base).toBeGreaterThan(60);
   await page.getByLabel('בצק °C').fill('30');
@@ -290,9 +292,11 @@ test('a measured rise corrects the estimate and can be undone', async ({ page })
   await planWithBulkRunning(page);
   const finish = page.getByTestId('finish');
   const before = await finish.innerText();
+  await page.getByTestId('open-temp').click();
   await page.getByLabel('עלייה %').fill('70');
   await page.getByRole('button', { name: 'עדכן את הזמנים' }).click();
   await expect(finish).not.toHaveText(before);
+  await page.locator('.sheet').getByRole('button', { name: 'סגור' }).click();
   await page.getByRole('button', { name: 'בטל שינוי' }).click();
   await expect(finish).toHaveText(before);
 });
@@ -346,6 +350,7 @@ test('start questionnaire: starter state, scale-up, and the step you are at', as
   await startBake(page);
   await page.getByRole('link', { name: /התחלת ביצוע/ }).click();
   await expect(page.getByRole('button', { name: /עוד לא התחלתי/ })).toHaveCount(0);
+  await expect(page.getByTestId('start-from-card')).toHaveCount(0); // starter not defined yet: ask
   await page.getByRole('button', { name: 'במקרר' }).click();
   await page.getByRole('button', { name: 'כן, צריך יותר' }).click();
   await page.getByRole('button', { name: '30', exact: true }).click();
@@ -700,6 +705,7 @@ test('plan has visible temperature and photo buttons: target shown, fridge advic
   await page.getByLabel('מקרר °C').fill('9');
   await page.getByRole('button', { name: 'עדכן את הזמנים' }).click();
   await expect(page.getByTestId('fridge-advice')).toContainText('חם');
+  await page.locator('.sheet').getByRole('button', { name: 'סגור' }).click();
   await page.getByTestId('open-photo').click();
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
   await page.getByLabel('בחר תמונה מהגלריה').setInputFiles({ name: 'a.png', mimeType: 'image/png', buffer: png });
@@ -957,6 +963,7 @@ test('scenario 5, looking back at the last bake: a finished bake shows in "what 
   await page.getByLabel('הערה למסלול הזה').fill('יצא מצוין');
   await page.getByRole('button', { name: 'סגור' }).first().click({ position: { x: 5, y: 5 } });
   await page.getByRole('button', { name: 'בטל אפייה' }).click();
+  await page.getByRole('button', { name: 'בטל ושמור ביומן' }).click();
   await page.goto('/#/');
   await expect(page.getByTestId('idle')).toBeVisible();
   await expect(page.getByTestId('recent')).toContainText('יומן אפיות');
@@ -1071,6 +1078,7 @@ test('two bakes at once: both on home, switch between them, alarms carry the bak
   // open the second one and cancel it: the first stays
   await page.getByTestId('running').nth(1).click();
   await page.getByRole('button', { name: 'בטל אפייה' }).click();
+  await page.getByRole('button', { name: 'בטל ושמור ביומן' }).click();
   await page.goto('/#/');
   await expect(page.getByTestId('running')).toHaveCount(1);
   const st = await page.evaluate(() => JSON.parse(localStorage.getItem('machmetzet.v1')!));
@@ -1326,4 +1334,58 @@ test('flows 2: a new bake is four steps (what, when, adjustments, summary with t
   await page.getByRole('button', { name: 'הקודם' }).first().click();
   await expect(ind).toContainText('שלב 1');
   await expect(page.getByLabel('כמות לחם')).toHaveText('2');
+});
+
+test('flows 3: finishing asks how it went and saves a note, cancelling asks whether to log, temperature is a sheet, the start screen follows the starter card', async ({ page }) => {
+  await page.goto('/#/new');
+  await startBake(page);
+  // temperature opens as a sheet over the plan and closes again
+  await page.getByTestId('open-temp').click();
+  await expect(page.locator('.sheet[aria-label="טמפרטורות"]')).toBeVisible();
+  await page.locator('.sheet').getByRole('button', { name: 'סגור' }).click();
+  await expect(page.locator('.sheet')).toHaveCount(0);
+  // "where am I" starts from the starter card (known: in the fridge), and keeps the bake's recipe/identity
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('machmetzet.v1')!);
+    s.starter = { ...s.starter, known: true, inFridge: true };
+    s.plan.recipeId = 'keep-me';
+    localStorage.setItem('machmetzet.v1', JSON.stringify(s));
+  });
+  await page.reload();
+  await page.getByRole('link', { name: /התחלת ביצוע/ }).click();
+  await expect(page.getByTestId('start-from-card')).toBeVisible();
+  await page.getByRole('button', { name: 'לא, יש מספיק' }).click();
+  await page.getByRole('button', { name: /עוד לא התחלתי/ }).click();
+  await expect(page).toHaveURL(/#\/plan$/);
+  const st = await page.evaluate(() => JSON.parse(localStorage.getItem('machmetzet.v1')!));
+  expect(st.plan.recipeId).toBe('keep-me');
+  // cancel: three ways out, back keeps the bake
+  await page.getByRole('button', { name: 'בטל אפייה' }).click();
+  await page.getByRole('button', { name: 'חזרה לאפייה' }).click();
+  await expect(page.getByRole('heading', { name: 'התוכנית שלך' })).toBeVisible();
+  await page.getByRole('button', { name: 'בטל אפייה' }).click();
+  await page.getByRole('button', { name: 'בטל בלי לשמור' }).click();
+  await page.goto('/#/');
+  await expect(page.getByTestId('idle')).toBeVisible();
+  const after = await page.evaluate(() => JSON.parse(localStorage.getItem('machmetzet.v1')!));
+  expect(after.history).toHaveLength(0);
+});
+
+test('flows 3: finishing a bake saves how it went and a closing note to the log', async ({ page }) => {
+  await page.goto('/#/new');
+  await startBake(page);
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('machmetzet.v1')!);
+    s.plan.steps = s.plan.steps.map((x: { doneAt?: number }) => ({ ...x, doneAt: Date.now() }));
+    localStorage.setItem('machmetzet.v1', JSON.stringify(s));
+  });
+  await page.reload();
+  await page.getByRole('button', { name: 'סיימתי, לשמור ביומן' }).click();
+  await page.getByRole('button', { name: 'לא הצליחה', exact: true }).click();
+  await page.getByLabel('הערת סיכום').fill('הבצק היה רטוב מדי');
+  await page.getByRole('button', { name: 'שמור ביומן', exact: true }).click();
+  const st = await page.evaluate(() => JSON.parse(localStorage.getItem('machmetzet.v1')!));
+  expect(st.history[0].status).toBe('failed');
+  expect(st.history[0].notes).toContain('הבצק היה רטוב מדי');
+  expect(st.plan).toBeNull();
 });
