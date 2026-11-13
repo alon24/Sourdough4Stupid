@@ -5,9 +5,9 @@ import {
 } from '../../../core/src/index';
 import { toActive } from '../activePlan';
 import { FlourMix, mixToBlend, type MixItem } from './FlourMix';
-import { toLocalInput } from '../format';
+import { dayName, hhmm, loavesText, shortDate, toLocalInput } from '../format';
 import { InclusionsEditor } from './InclusionsEditor';
-import { addPlan, daysSinceFed, setState, useStore, type Recipe } from '../store';
+import { addPlan, allPlans, daysSinceFed, getState, setState, useStore, type Recipe } from '../store';
 
 const WEIGHTS = [750, 900, 1000, 1200];
 
@@ -114,6 +114,8 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
   const [ready, setReady] = useState(false);
   /** "I already have enough": ask for the real amount before the block is lifted */
   const [confirmEnough, setConfirmEnough] = useState(false);
+  /** the baker chose to grow the starter: show the feeding plan and wait for a go-ahead */
+  const [feedPlan, setFeedPlan] = useState(false);
   const [enoughN, setEnoughN] = useState('');
   const pieceItems = baseItems;
   const nothing = loaves + rolls === 0;
@@ -172,8 +174,12 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
       ...(enrich !== 'none' && rolls > 0 ? { rollEnrich: enrich } : {}),
       ...(starterMode && !ready ? { overnightFeed: overnight } : {}), ...(starterMode ? { useAllStarter: true } : {}),
     };
-    const parts = [loaves && `${loaves} לחמים`, rolls && `${rolls} ${rollsName}`, ...picked].filter(Boolean);
-    const act = toActive(plan(input), input, parts.join(' · '));
+    const parts = [loaves && loavesText(loaves), rolls && `${rolls} ${rollsName}`, ...picked].filter(Boolean);
+    const base = `${initial?.name ?? parts.join(' · ')}, ${shortDate(at)}`;
+    const taken = new Set(allPlans(getState()).map((p) => p.title));
+    let title = base;
+    for (let n = 2; taken.has(title); n++) title = `${base} (${n})`;
+    const act = toActive(plan(input), input, title);
     addPlan({ ...act, ...(combo.notes.length ? { splitNotes: combo.notes } : {}), ...(initial ? { recipeId: initial.id } : {}) });
     location.hash = '#/plan';
   };
@@ -246,7 +252,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
               {want > check.need * 1.3 ? <> שים לב: המומלץ ללחם שבחרת הוא רק כ־<span class="num">{check.need}</span> ג'. אם תכתוב {check.need} במקום {want}, יחסר פחות.</> : null}
             </span>
             <div style="display:flex;flex-direction:column;gap:8px">
-              <button class="btn small primary" onClick={go} disabled={nothing}>צריך להגדיל את הסטארטר: תכנן לי את ההאכלות</button>
+              <button class="btn small primary" onClick={() => { setFeedPlan(true); setConfirmEnough(false); }} disabled={nothing} aria-expanded={feedPlan}>צריך להגדיל את הסטארטר: תכנן לי את ההאכלות</button>
               <button class="btn small" onClick={() => { setConfirmEnough(true); setEnoughN(String(want)); }}>יש לי מספיק סטארטר מוכן</button>
             </div>
             {want > check.need ? <button class="btn small" onClick={() => setUseOverride(check.need)}>או להשתמש רק ב־{check.need} ג' (פחות סטארטר)</button> : null}
@@ -262,6 +268,33 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
                 </button>
               </div>
             )}
+          </div>
+        )}
+        {short && feedPlan && chain.length > 0 && (
+          <div class="card mint" data-testid="feed-plan" aria-label="תכנון הגדלת הסטארטר" style="gap:8px">
+            <strong>תכנון הגדלת הסטארטר</strong>
+            <span>
+              יש לך <span class="num">{have}</span> ג', צריך <span class="num">{want}</span> ג' מוכנים ועל השיא. אחרי ההגדלה נשארים עוד כ־30 ג' להמשך (המחמצת שלך לפעם הבאה).
+            </span>
+            <span data-testid="feed-summary">
+              {chain.length === 1 ? 'האכלה אחת' : `${chain.length} האכלות`} · כ־<span class="num">{Math.round(chainHours)}</span> שעות בסך הכול · אם מתחילים עכשיו, מוכן {dayName(Date.now() + chainHours * 3_600_000)} בערך ב־<span class="num">{hhmm(Date.now() + chainHours * 3_600_000)}</span>
+            </span>
+            {chain.map((c, i) => (
+              <div class="row line" data-testid="feed-stage" style="min-height:0;padding-block:8px;flex-wrap:wrap">
+                <div style="display:flex;flex-direction:column">
+                  <strong>האכלה {i + 1} מתוך {chain.length}</strong>
+                  <span class="muted">יחס 1 : {Math.round(c.ratio.a * 10) / 10} : {Math.round(c.ratio.b * 10) / 10} (סטארטר : קמח : מים)</span>
+                </div>
+                <span>
+                  {Math.round(c.seed)} ג' סטארטר + {Math.round(c.addFlour)} ג' קמח + {Math.round(c.addWater)} ג' מים = <span class="num">{Math.round(c.total)}</span> ג', כ־{Math.round(c.hours)} שעות
+                </span>
+              </div>
+            ))}
+            <span class="muted">אפשר לשנות למעלה את כמות הסטארטר שצריך או האכלה אחת ללילה, והתכנון יתעדכן. כשזה נראה לך נכון, ממשיכים לתוכנית.</span>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <button class="btn primary small" onClick={go}>אישור, ממשיכים לתוכנית</button>
+              <button class="btn small" onClick={() => setFeedPlan(false)}>חזרה</button>
+            </div>
           </div>
         )}
         {!short && check.status === 'lots' && (

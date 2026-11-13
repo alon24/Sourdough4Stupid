@@ -28,8 +28,9 @@ export function Start() {
   if (!plan || !input) {
     return (
       <main>
-        <h1>אין מתכון להתחיל</h1>
-        <a class="btn primary" href="#/new">מתכון חדש</a>
+        <h1>אין אפייה פתוחה</h1>
+        <p class="muted">קודם מתכננים אפייה, ואז אפשר לסמן איפה אתה בה.</p>
+        <a class="btn primary" href="#/new">אפייה חדשה</a>
       </main>
     );
   }
