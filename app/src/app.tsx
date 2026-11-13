@@ -17,7 +17,7 @@ import { UpdateBanner } from './UpdateBanner';
 const TABS = [
   { hash: '#/', label: 'בית' },
   { hash: '#/plan', label: 'אפיות' },
-  { hash: '#/new', label: 'אפייה חדשה' },
+  { hash: '#/new', label: 'התחלה' },
   { hash: '#/recipes', label: 'מתכונים' },
   { hash: '#/calc', label: 'מחשבון' },
 ];

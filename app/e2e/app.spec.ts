@@ -528,7 +528,7 @@ const seedPlanWithDueStep = async (page: import('@playwright/test').Page) => {
   });
 };
 
-const TAB_ROUTES: [string, RegExp][] = [['אפיות', /#\/plan$/], ['אפייה חדשה', /#\/new$/], ['מתכונים', /#\/recipes$/], ['מחשבון', /#\/calc$/], ['בית', /#\/$/]];
+const TAB_ROUTES: [string, RegExp][] = [['אפיות', /#\/plan$/], ['התחלה', /#\/new$/], ['מתכונים', /#\/recipes$/], ['מחשבון', /#\/calc$/], ['בית', /#\/$/]];
 
 test('tabs work with an overdue step, granted notifications that throw, and a tall toast (tapped like a phone)', async ({ page }) => {
   const errors: string[] = [];
