@@ -22,7 +22,7 @@ test('walkthrough with screenshots: the reference bake end to end on a phone vie
 
   // wizard, starter mode
   await page.goto('/#/new');
-  await page.getByLabel('רוצה סטארטר (גרם)').fill('300');
+  await page.getByLabel('כמה סטארטר לשים בבצק (גרם)').fill('300');
   await page.getByLabel('יש לי עכשיו (גרם)').fill('32');
   await page.getByRole('combobox', { name: 'משקל לחם' }).selectOption('1000');
   await page.getByRole('button', { name: 'עוד לחם' }).click();
