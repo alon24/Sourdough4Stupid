@@ -171,6 +171,7 @@ test('starting from starter: 300 g wanted, 30 g in the fridge', async ({ page })
   await page.getByLabel('יש לי עכשיו (גרם)').fill('30');
   await expect(page.getByTestId('chain')).toContainText('2 האכלות');
   await page.getByRole('button', { name: /צריך להגדיל את הסטארטר/ }).click();
+  await page.getByRole('button', { name: 'אישור, ממשיכים לתוכנית' }).click();
   await expect(page.getByRole('button', { name: /האכלה 1 מתוך 2/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /האכלה 2 מתוך 2/ })).toBeVisible();
 });
@@ -463,7 +464,7 @@ test('reference bake: 32 g stiff, 300 g tomorrow, 2 loaves of 1 kg + rolls, spli
   await page.getByRole('button', { name: /הכול יחד/ }).click();
   await page.getByRole('combobox', { name: 'העשרת הלחמניות' }).selectOption('oil');
   const feed = page.getByRole('button', { name: /צריך להגדיל את הסטארטר/ });
-  if (await feed.count()) await feed.click(); else await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
+  if (await feed.count()) { await feed.click(); await page.getByRole('button', { name: 'אישור, ממשיכים לתוכנית' }).click(); } else await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
   await expect(page.getByTestId('split')).toContainText('2 כיכרות × 1000');
   await expect(page.getByTestId('split')).toContainText('7 לחמניות');
   await page.getByRole('button', { name: /להאכיל סטארטר/ }).click();
@@ -721,7 +722,7 @@ test('items and starter need: a kilo loaf defaults to 1, 200 g on hand asks if s
   await page.getByLabel('כמה סטארטר לשים בבצק (גרם)').fill('300');
   await page.getByRole('button', { name: 'הסר בריוש' }).click();
   const feed = page.getByRole('button', { name: /צריך להגדיל את הסטארטר/ });
-  if (await feed.count()) await feed.click(); else await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
+  if (await feed.count()) { await feed.click(); await page.getByRole('button', { name: 'אישור, ממשיכים לתוכנית' }).click(); } else await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
   await expect(page.getByTestId('split')).toContainText('פיצה');
   await expect(page.getByRole('button', { name: /לאפות פיצה/ })).toBeVisible();
 });
@@ -767,6 +768,7 @@ test('starter explanations: the need is spelled out, the shortfall says what to 
   await w.getByRole('button', { name: /השתמש רק ב־90/ }).click();
   await expect(page.getByTestId('starter-warning')).toContainText('חסרים 60');
   await page.getByRole('button', { name: 'תכנן לי את ההאכלות' }).click();
+  await page.getByRole('button', { name: 'אישור, ממשיכים לתוכנית' }).click();
   await expect(page.getByRole('heading', { name: 'התוכנית שלך' })).toBeVisible();
   await expect(page.getByRole('button', { name: /האכלה 1 מתוך/ })).toBeVisible();
 });
@@ -1079,9 +1081,41 @@ test('not enough starter blocks the start: choose to feed first or confirm you a
   expect(st).toBe(100);
 });
 
-test('not enough starter: feeding first is an explicit choice', async ({ page }) => {
+test('not enough starter: feeding first shows the feeding plan and waits for a go-ahead, it does not jump into the bake', async ({ page }) => {
   await page.goto('/#/new');
   await page.getByLabel('יש לי עכשיו (גרם)').fill('30');
   await page.getByRole('button', { name: /צריך להגדיל את הסטארטר/ }).click();
-  await expect(page.getByRole('button', { name: /האכלה 1 מתוך/ })).toBeVisible();
+  await expect(page).toHaveURL(/#\/new/);
+  const fp = page.getByTestId('feed-plan');
+  await expect(fp).toBeVisible();
+  await expect(fp).toContainText('יש לך 30');
+  await expect(page.getByTestId('feed-summary')).toContainText('האכלות');
+  expect(await page.getByTestId('feed-stage').count()).toBeGreaterThanOrEqual(2);
+  await expect(fp.getByTestId('feed-stage').first()).toContainText('סטארטר +');
+  await expect(fp.getByTestId('feed-stage').first()).toContainText('יחס 1');
+  // changing the amount updates the plan
+  await page.getByLabel('כמה סטארטר לשים בבצק (גרם)').fill('60');
+  await expect(fp).toContainText('צריך 60');
+  await page.getByRole('button', { name: 'חזרה' }).click();
+  await expect(page.getByTestId('feed-plan')).toHaveCount(0);
+  await page.getByRole('button', { name: /צריך להגדיל את הסטארטר/ }).click();
+  await page.getByRole('button', { name: 'אישור, ממשיכים לתוכנית' }).click();
+  await expect(page.getByRole('heading', { name: 'התוכנית שלך' })).toBeVisible();
+  const st = await page.evaluate(() => JSON.parse(localStorage.getItem('machmetzet.v1')!));
+  expect(st.plan.input.starter.haveGrams).toBe(30); // the plan includes the feedings
+});
+
+
+test('flour mix fits a narrow phone: nothing in the card, including the custom flour form, goes past the screen edge', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 740 });
+  await seedState(page, { customFlours: [{ id: 'c1', name: 'קמח כוסמין מלא עם שם ארוך מאוד', absorption: 0.08 }] });
+  await page.reload();
+  await page.goto('/#/recipe');
+  await page.getByRole('button', { name: 'הרכב קמחים משלי' }).click();
+  await page.locator('details', { hasText: 'קמח משלי' }).locator('summary').click();
+  await expect(page.getByRole('button', { name: 'הוסף', exact: true })).toBeVisible();
+  const over = await page.locator('section[aria-label="הרכב הקמחים"] *').evaluateAll((els) =>
+    els.filter((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && (r.right > innerWidth + 0.5 || r.left < -0.5); }).map((e) => e.tagName + ':' + (e.getAttribute('aria-label') ?? e.textContent?.slice(0, 20))));
+  expect(over).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
