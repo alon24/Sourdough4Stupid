@@ -105,7 +105,10 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
 
   const [useOverride, setUseOverride] = useState<number | null>(null);
   /** until the baker types an amount (or has told the app one), assume there is enough: an unknown starter must not block */
-  const [haveRaw, setHave] = useState<number | null>(starter.grams ?? null);
+  /** starter already promised to other bakes that have not used it yet (their mixing step is still ahead) */
+  const reservedFor = allPlans(getState()).filter((p) => p.input?.buildTarget && p.steps.find((x) => x.kind === 'mix')?.doneAt === undefined);
+  const reserved = reservedFor.reduce((n, p) => n + (p.input?.buildTarget ?? 0), 0);
+  const [haveRaw, setHave] = useState<number | null>(starter.grams !== undefined ? Math.max(0, starter.grams - (isRecipe ? 0 : reserved)) : null);
   const have = haveRaw ?? Math.max(100, Math.round(starterNeed(items).grams / 5) * 5);
   const check = starterCheck(items, have);
   const want = useOverride ?? (check.need || 100);
@@ -235,6 +238,11 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
         {check.need > 0 && (
           <span class="muted" data-testid="starter-need">
             ל־<span class="num">{Math.round(doughG)}</span> ג' בצק מומלץ כ־<span class="num">{check.need}</span> ג' סטארטר פעיל (מוכן ועל השיא). זה בערך 100 ג' לכל ק"ג בצק.
+          </span>
+        )}
+        {reservedFor.length > 0 && (
+          <span class="muted" data-testid="starter-reserved">
+            כבר משוריינים {reserved} ג' סטארטר לאפיות רצות: {reservedFor.map((p) => p.title).join(', ')}. הכמות שבשדה "יש לי עכשיו" כבר בלי זה.
           </span>
         )}
         <div class="grid2">

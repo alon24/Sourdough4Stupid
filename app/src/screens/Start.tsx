@@ -19,8 +19,10 @@ function Q({ title, children }: { title: string; children: preact.ComponentChild
 
 /** "Starting the bake": a short multiple-choice questionnaire that re-plans from where you really are. */
 export function Start() {
-  const { plan } = useStore();
-  const [starter, setStarter] = useState<Starter | null>(null);
+  const { plan, starter: known } = useStore();
+  /** the starter card is the one source of truth: its state is what this screen starts from */
+  const fromCard: Starter | null = !known.known && !known.none ? null : known.none ? 'none' : known.inFridge ? 'fridge' : known.weak ? 'weak' : 'active';
+  const [starter, setStarter] = useState<Starter | null>(fromCard);
   const [scale, setScale] = useState<Scale | null>(null);
   const [have, setHave] = useState<number | null>(null);
 
@@ -59,7 +61,8 @@ export function Start() {
     const p = makePlan(next, now);
     const active = toActive(p, next, plan.title, plan.createdAt);
     const steps = stepId ? resumeAt(p.steps, stepId, now) : p.steps;
-    setState({ plan: { ...active, steps } });
+    // keep everything the bake already holds: its recipe, photos, readings and notes
+    setState({ plan: { ...plan, ...active, createdAt: plan.createdAt, steps, ...(plan.recipeId ? { recipeId: plan.recipeId } : {}), ...(plan.photos ? { photos: plan.photos } : {}), ...(plan.readings?.length ? { readings: plan.readings } : {}) } });
     location.hash = '#/plan';
   };
 
@@ -70,6 +73,7 @@ export function Start() {
         <h1>איפה אתה עכשיו?</h1>
       </div>
 
+      {fromCard && <p class="muted" data-testid="start-from-card">לפי כרטיס הסטארטר שלך. אם זה השתנה, בחר מחדש. <a href="#/starter">עדכון מצב הסטארטר</a></p>}
       <Q title="יש לך סטארטר? באיזה מצב?">
         {([['none', 'אין לי'], ['fridge', 'במקרר'], ['active', 'פעיל ובועבע'], ['weak', 'חלש ועייף']] as [Starter, string][]).map(([k, l]) => (
           <button class={`chip ${starter === k ? 'on' : ''}`} aria-pressed={starter === k} onClick={() => { setStarter(k); setScale(null); setHave(null); }}>{l}</button>

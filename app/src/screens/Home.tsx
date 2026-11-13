@@ -3,6 +3,8 @@ import { dayName, hhmm, until } from '../format';
 import { type ActivePlan, allPlans, daysSinceFed, planId, selectPlan, setState, useStore } from '../store';
 
 const isApk = Capacitor.isNativePlatform();
+const CHECKED = 'machmetzet.alarms-checked';
+const alarmsChecked = (): boolean => { try { return localStorage.getItem(CHECKED) === '1'; } catch { return true; } };
 
 export function Home() {
   const st = useStore();
@@ -30,6 +32,13 @@ export function Home() {
         </div>
         <span class="muted" data-testid="version" style="direction:ltr;font-size:12px;white-space:nowrap">v{__APP_VERSION__}{isApk ? ' · APK' : ''}</span>
       </div>
+
+      {isApk && !alarmsChecked() && (
+        <a class="card" href="#/more" onClick={() => { try { localStorage.setItem(CHECKED, '1'); } catch { /* ignore */ } }} data-testid="alarm-check-prompt" style="text-decoration:none;color:inherit">
+          <strong>בדוק שהשעונים יצלצלו</strong>
+          <span class="muted">פעם אחת: הרשאות והתראה לדוגמה בעוד 5 שניות. לחיצה פותחת את הבדיקה.</span>
+        </a>
+      )}
 
       {running.length > 0 ? (
         <section style="display:flex;flex-direction:column;gap:10px" aria-label="אפיות רצות" data-testid="running-list">

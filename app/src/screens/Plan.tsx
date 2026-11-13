@@ -5,7 +5,8 @@ import {
   waterTemp, fridgeTip, targetFor, type Reading, type Step,
 } from '../../../core/src/index';
 import { dayName, grams, hhmm, toLocalInput, until } from '../format';
-import { getState, planId, selectPlan, setState, useStore, type PlanPhoto } from '../store';
+import { STATUS_LABEL } from './Log';
+import { type BakeStatus, getState, planId, selectPlan, setState, useStore, type PlanPhoto } from '../store';
 import { savePhoto, shrink, usePhotoUrl } from '../photos';
 
 export function PlanScreen() {
@@ -69,13 +70,21 @@ export function PlanScreen() {
   };
   const sheetB = branches.find((b) => b.id === branchOpen);
   const allRoom = branches.length > 0 && branches.every((b) => b.where === 'room' || b.where === 'now');
-  const finish = () => {
+  /** closing sheet: finishing asks how it went and for a note, cancelling asks whether to log it */
+  const [closing, setClosing] = useState<'finish' | 'cancel' | null>(null);
+  const [howItWent, setHowItWent] = useState<BakeStatus>('success');
+  const [endNote, setEndNote] = useState('');
+  const finish = (status: BakeStatus | null) => {
     const notes = [
+      ...(endNote.trim() ? [endNote.trim()] : []),
       ...branches.filter((b) => b.note).map((b) => `${b.label}: ${b.note}`),
       ...steps.filter((s) => s.userNote).map((s) => `${s.title}: ${s.userNote}`),
       ...steps.filter((s) => s.kind === 'custom').map((s) => `${s.title}${s.note ? `: ${s.note}` : ''}`),
     ];
-    setState({ plan: null, history: [{ title: plan.title, finishedAt: Date.now(), status: next ? 'unfinished' : 'finished', ...(plan.recipeId ? { recipeId: plan.recipeId } : {}), ...(plan.input?.inclusions?.length ? { inclusions: plan.input.inclusions.map((i) => i.name) } : {}), ...(notes.length ? { notes } : {}), ...(plan.photos?.length ? { photos: plan.photos } : {}), ...(plan.readings?.length ? { readings: plan.readings } : {}) }, ...history] });
+    setClosing(null);
+    setEndNote('');
+    if (status === null) { setState({ plan: null }); return; }
+    setState({ plan: null, history: [{ title: plan.title, finishedAt: Date.now(), status, ...(plan.recipeId ? { recipeId: plan.recipeId } : {}), ...(plan.input?.inclusions?.length ? { inclusions: plan.input.inclusions.map((i) => i.name) } : {}), ...(notes.length ? { notes } : {}), ...(plan.photos?.length ? { photos: plan.photos } : {}), ...(plan.readings?.length ? { readings: plan.readings } : {}) }, ...history] });
   };
   const deriveFromPieces = () => {
     const st = getState();
@@ -161,10 +170,10 @@ export function PlanScreen() {
       )}
 
       <div class="grid2 actions">
-        <button class="btn" data-testid="open-temp" onClick={() => { setTempOpen(true); setTimeout(() => document.getElementById('temp-card')?.scrollIntoView({ block: 'center' }), 50); }}>🌡️ טמפרטורה</button>
+        <button class="btn" data-testid="open-temp" onClick={() => setTempOpen(true)}>🌡️ טמפרטורה</button>
         <button class="btn" data-testid="open-photo" onClick={() => setPhotoOpen(true)}>📷 תמונה</button>
       </div>
-      <TempCard open={tempOpen} stepKind={(next ?? last).kind} />
+      {tempOpen && <TempCard stepKind={(next ?? last).kind} onClose={() => setTempOpen(false)} />}
       <PhotoStrip photos={plan.photos ?? []} />
 
       {far && next && (
@@ -221,8 +230,44 @@ export function PlanScreen() {
 
       <div class="grid2">
         <button class="btn small" onClick={askNotify}>הפעל התראות</button>
-        <button class="btn small" onClick={finish}>{next ? 'בטל אפייה' : 'סיימתי, לשמור ביומן'}</button>
+        {next ? (
+          <button class="btn small danger" onClick={() => setClosing('cancel')}>בטל אפייה</button>
+        ) : (
+          <button class="btn small" onClick={() => setClosing('finish')}>סיימתי, לשמור ביומן</button>
+        )}
       </div>
+
+      {closing && (
+        <>
+          <button class="scrim" aria-label="סגור" onClick={() => setClosing(null)}></button>
+          <div class="sheet" role="dialog" aria-label={closing === 'finish' ? 'סיום אפייה' : 'ביטול אפייה'}>
+            {closing === 'finish' ? (
+              <>
+                <strong class="big">איך עברה האפייה?</strong>
+                <div class="chips" role="group" aria-label="איך עברה">
+                  {(['success', 'finished', 'failed'] as const).map((k) => (
+                    <button class={`chip ${howItWent === k ? 'on' : ''}`} aria-pressed={howItWent === k} onClick={() => setHowItWent(k)}>{STATUS_LABEL[k]}</button>
+                  ))}
+                </div>
+                <label class="field">
+                  הערה לאפייה (לא חובה)
+                  <textarea rows={3} aria-label="הערת סיכום" value={endNote} onInput={(e) => setEndNote(e.currentTarget.value)}></textarea>
+                </label>
+                <button class="btn primary" onClick={() => finish(howItWent)}>שמור ביומן</button>
+                <button class="btn small" onClick={() => setClosing(null)}>חזרה לאפייה</button>
+              </>
+            ) : (
+              <>
+                <strong class="big">לבטל את "{plan.title}"?</strong>
+                <span class="muted">השעונים של האפייה הזאת יימחקו. אפשר לשמור אותה ביומן כ"לא הושלמה".</span>
+                <button class="btn primary" onClick={() => finish('unfinished')}>בטל ושמור ביומן</button>
+                <button class="btn" style="border-color:var(--coral);color:var(--coral)" onClick={() => finish(null)}>בטל בלי לשמור</button>
+                <button class="btn small" onClick={() => setClosing(null)}>חזרה לאפייה</button>
+              </>
+            )}
+          </div>
+        </>
+      )}
 
       {sel && (
         <>
@@ -421,7 +466,7 @@ function AddStep({ branches, track, onClose, onAdd }: { branches: Branch[]; trac
 }
 
 /** Quick temperature input: dough, kitchen, rise. Recomputes the rest of the bulk and the alarms. */
-function TempCard({ open, stepKind }: { open: boolean; stepKind: string }) {
+function TempCard({ stepKind, onClose }: { stepKind: string; onClose: () => void }) {
   const { plan, roomTempC } = useStore();
   const [dough, setDough] = useState('');
   const [room, setRoom] = useState(String(roomTempC));
@@ -456,8 +501,10 @@ function TempCard({ open, stepKind }: { open: boolean; stepKind: string }) {
   };
 
   return (
-    <section class={`card ${open ? 'hl' : ''}`} id="temp-card" aria-label="טמפרטורות">
-      <strong>טמפרטורות</strong>
+    <>
+    <button class="scrim" aria-label="סגור" onClick={onClose}></button>
+    <div class="sheet tempsheet" id="temp-card" role="dialog" aria-label="טמפרטורות">
+      <div class="row"><strong class="big">טמפרטורות</strong><button class="btn small" onClick={onClose}>סגור</button></div>
       <span class="muted" data-testid="temp-target">יעד עכשיו ({targetFor(stepKind, roomNum).what}): {targetFor(stepKind, roomNum).text}</span>
       {!started && (
         <span class="muted" data-testid="water-tip">
@@ -498,7 +545,8 @@ function TempCard({ open, stepKind }: { open: boolean; stepKind: string }) {
       {readings.some((x) => x.fridgeC !== undefined) && <span data-testid="fridge-advice">{fridgeTip([...readings].reverse().find((x) => x.fridgeC !== undefined)!.fridgeC!)}</span>}
       {lastDough !== undefined && <span data-testid="dough-advice">{doughTempAdvice(lastDough).text}</span>}
       <span class="muted">{roomTempTip(roomNum)}</span>
-    </section>
+    </div>
+    </>
   );
 }
 
