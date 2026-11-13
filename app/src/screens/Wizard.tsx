@@ -147,8 +147,13 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
     const norm = (r: { loaves: number; rolls: number; weight: number; shape: string; inclusions?: string[]; kneading: string; cold: boolean; hydration: number; mix: object }) => JSON.stringify([r.loaves, r.rolls, r.weight, r.shape, 0, r.kneading, r.cold, r.hydration, r.mix]);
     return norm(initial) !== norm({ loaves: bLoaves, rolls: bRolls, weight: bWeight, shape, inclusions: picked, kneading, cold, hydration, mix: currentItems() }) || JSON.stringify(itemsOf(initial)) !== JSON.stringify(baseItems);
   };
-  const [askDerive, setAskDerive] = useState(false);
-  const go = () => (changedFromRecipe() ? setAskDerive(true) : doGo());
+  /** the baker asked to keep this bake's changes as a new recipe too */
+  const [saveNew, setSaveNew] = useState(false);
+  const go = () => (saveNew && changedFromRecipe() ? derive() : doGo());
+  /** a new bake is a short walk: what, when, adjustments, summary and starter. A recipe is one page. */
+  const [step, setStep] = useState(1);
+  const on = (n: number) => isRecipe || step === n;
+  const STEPS = ['מה אופים', 'מתי', 'התאמות', 'סיכום וסטארטר'];
   const derive = () => {
     if (!initial) return;
     const r: Recipe = {
@@ -189,8 +194,10 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
       <div>
         <span class="sub">{isRecipe ? 'מתכון' : 'אפייה חדשה'}</span>
         <h1>{isRecipe ? (initial ? 'עריכת מתכון' : 'מתכון חדש') : 'מה בא לך?'}</h1>
+        {!isRecipe && <span class="muted" data-testid="wizard-step">שלב {step} מתוך 4: {STEPS[step - 1]}</span>}
       </div>
 
+<div class="stepbox" hidden={!on(1)}>
       {isRecipe ? (
         <label class="field">
           שם המתכון
@@ -207,7 +214,9 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
           </label>
         )
       )}
+</div>
 
+<div class="stepbox" hidden={!on(4)}>
       {isRecipe ? (
         <section class="card" aria-label="סטארטר במתכון" data-testid="recipe-starter">
           <strong>כמה סטארטר צריך</strong>
@@ -219,6 +228,10 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
       ) : (
       <section class="card" aria-label="כמה סטארטר" data-testid="starter-section">
         <strong>הסטארטר שלי</strong>
+        <span class="muted" data-testid="starter-state">
+          {starter.none ? 'אין לך סטארטר עדיין. אפשר לתכנן הגדלה מכמה גרמים. ' : starter.known ? `${starter.inFridge ? 'במקרר' : 'בחוץ'}, הואכל ${daysSinceFed(starter) === 0 ? 'היום' : `לפני ${daysSinceFed(starter)} ימים`}${starter.weak ? ', חלש' : ''}. ` : 'מצב הסטארטר עוד לא הוגדר. '}
+          <a href="#/starter">עדכון מצב הסטארטר</a>
+        </span>
         {check.need > 0 && (
           <span class="muted" data-testid="starter-need">
             ל־<span class="num">{Math.round(doughG)}</span> ג' בצק מומלץ כ־<span class="num">{check.need}</span> ג' סטארטר פעיל (מוכן ועל השיא). זה בערך 100 ג' לכל ק"ג בצק.
@@ -227,7 +240,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
         <div class="grid2">
           <label class="field">
             יש לי עכשיו (גרם)
-            <input type="number" inputMode="numeric" min="1" value={have} onInput={(e) => setHave(+e.currentTarget.value)} />
+            <input type="number" inputMode="numeric" min="1" value={have} onInput={(e) => { const v = +e.currentTarget.value; setHave(v); if (v > 0) setState({ starter: { ...starter, grams: v } }); }} />
           </label>
           <label class="field">
             כמה סטארטר לשים בבצק (גרם)
@@ -318,7 +331,9 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
         )}
       </section>
       )}
+</div>
 
+<div class="stepbox" hidden={!on(1)}>
       <section class="card" style="padding-block:6px" aria-label="מה אופים" data-testid="items">
         <strong style="padding-top:8px">מה אופים</strong>
         {baseItems.map((it, k) => {
@@ -419,12 +434,16 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
           <span class="muted" data-testid="scaled-total">בסך הכול בצק: {Math.round(starterNeed(items).dough)} ג', סטארטר: {Math.round(starterNeed(items).grams)} ג'.</span>
         </section>
       )}
+</div>
 
+<div class="stepbox" hidden={!on(2)}>
       {!isRecipe && <label class="field">
         יוצא מהתנור
         <input type="datetime-local" value={toLocalInput(at)} onInput={(e) => e.currentTarget.value && setAt(new Date(e.currentTarget.value).getTime())} />
       </label>}
+</div>
 
+<div class="stepbox" hidden={!on(3)}>
       <div>
         <span class="sub">תוספות</span>
         <div class="chips" style="margin-top:8px">
@@ -516,29 +535,35 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
         </label>
         <span class="muted">4 היא ברירת המחדל: כל קיפול מחזק את הגלוטן בלי לישה ארוכה. בצק רטוב או קמח מלא: אפשר להוסיף. אפשר גם להוסיף ולהסיר בתוך התוכנית.</span>
       </section>
+</div>
+<div class="stepbox" hidden={!on(2)}>
       <div class="seg" role="group" aria-label="התפחה אחרונה">
         <button class={cold ? 'on' : ''} aria-pressed={cold} onClick={() => setCold(true)}>לילה במקרר</button>
         <button class={!cold ? 'on' : ''} aria-pressed={!cold} onClick={() => setCold(false)}>אפייה באותו יום</button>
       </div>
+</div>
 
-      {askDerive && (
-        <section class="card" role="dialog" aria-label="שינית את המתכון">
-          <strong>שינית משהו מהמתכון "{initial?.name}". לשמור כמתכון חדש?</strong>
-          <div class="grid2">
-            <button class="btn primary" onClick={derive}>כן, מתכון חדש</button>
-            <button class="btn" onClick={doGo}>לא, רק הפעם</button>
-          </div>
-        </section>
+      {!isRecipe && step === 4 && changedFromRecipe() && (
+        <label class="card row" style="justify-content:flex-start;min-height:48px" data-testid="changed-from-recipe">
+          <input type="checkbox" checked={saveNew} onChange={(e) => setSaveNew(e.currentTarget.checked)} style="width:24px;height:24px" />
+          <span>שונה מהמתכון "{initial?.name}" (רק באפייה הזאת). לשמור גם כמתכון חדש?</span>
+        </label>
       )}
       {isRecipe ? (
         <button class="btn primary" style="margin-top:auto;font-size:19px" disabled={nothing || !name.trim() || (!!mix && !mixOk)} onClick={saveRecipe}>
           {!name.trim() ? 'צריך שם למתכון' : mix && !mixOk ? 'הקמחים צריכים להגיע ל־100%' : 'שמור מתכון'}
         </button>
+      ) : step < 4 ? (
+        <div class="grid2" style="margin-top:auto">
+          <button class="btn" disabled={step === 1} onClick={() => { setStep(step - 1); scrollTo(0, 0); }}>הקודם</button>
+          <button class="btn primary" style="font-size:19px" disabled={step === 1 && nothing} onClick={() => { setStep(step + 1); scrollTo(0, 0); }}>הבא: {STEPS[step]}</button>
+        </div>
       ) : (
         <button class="btn primary" style="margin-top:auto;font-size:19px" disabled={nothing || short || (!!mix && !mixOk)} onClick={go}>
           {nothing ? 'צריך לבחור לפחות לחם אחד' : short ? 'אין מספיק סטארטר: בחר באחת האפשרויות למעלה' : mix && !mixOk ? 'הקמחים צריכים להגיע ל־100%' : 'יאללה, תתכנן לי'}
         </button>
       )}
+      {!isRecipe && step === 4 && <button class="btn small" onClick={() => { setStep(3); scrollTo(0, 0); }}>הקודם</button>}
     </main>
   );
 }
