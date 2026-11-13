@@ -5,11 +5,11 @@ import {
   waterTemp, fridgeTip, targetFor, type Reading, type Step,
 } from '../../../core/src/index';
 import { dayName, grams, hhmm, toLocalInput, until } from '../format';
-import { getState, setState, useStore, type PlanPhoto } from '../store';
+import { getState, planId, selectPlan, setState, useStore, type PlanPhoto } from '../store';
 import { savePhoto, shrink, usePhotoUrl } from '../photos';
 
 export function PlanScreen() {
-  const { plan, history } = useStore();
+  const { plan, history, others } = useStore();
   const [open, setOpen] = useState<string | null>(null);
   const [cascade, setCascade] = useState(true);
   const [doneAtInput, setDoneAtInput] = useState('');
@@ -94,6 +94,14 @@ export function PlanScreen() {
         <span class="sub">{plan.title}</span>
         <h1>התוכנית שלך</h1>
       </div>
+      {others.length > 0 && (
+        <nav class="chips" aria-label="אפיות רצות" data-testid="bake-switch">
+          {[plan, ...others].map((p) => (
+            <button class={`chip ${p === plan ? 'on' : ''}`} aria-pressed={p === plan} onClick={() => selectPlan(planId(p))}>{p.title}</button>
+          ))}
+          <a class="chip" href="#/new">+ אפייה נוספת</a>
+        </nav>
+      )}
 
       <section class="card mint">
         <div class="row">

@@ -1,15 +1,15 @@
 import { Capacitor } from '@capacitor/core';
 import { AlarmCheck } from './Alarms';
 import { dayName, hhmm, until } from '../format';
-import { daysSinceFed, setState, useStore } from '../store';
+import { allPlans, daysSinceFed, planId, selectPlan, setState, useStore } from '../store';
 
 const isApk = Capacitor.isNativePlatform();
 
 export function Home() {
-  const { starter, plan, history } = useStore();
-  const done = plan?.steps.filter((x) => x.doneAt !== undefined).length ?? 0;
+  const st = useStore();
+  const { starter, history } = st;
+  const running = allPlans(st).filter((p) => p.steps.some((s) => s.doneAt === undefined));
   const days = daysSinceFed(starter);
-  const next = plan?.steps.find((s) => s.doneAt === undefined);
   const known = starter.known === true;
   const mood = days === 0 ? 'הואכל היום' : days === 1 ? 'הואכל אתמול' : `הואכל לפני ${days} ימים`;
   const advice = !starter.inFridge
@@ -31,19 +31,27 @@ export function Home() {
         <span class="muted" data-testid="version" style="direction:ltr;font-size:12px;white-space:nowrap">v{__APP_VERSION__}{isApk ? ' · APK' : ''}</span>
       </div>
 
-      {next && plan ? (
-        <a class="card sun running" href="#/plan" style="text-decoration:none;color:inherit" aria-label="תוכנית רצה עכשיו" data-testid="running">
-          <div class="row">
-            <span class="sub">▶ תוכנית רצה עכשיו · {plan.title}</span>
-            <span class="tag">{until(next.at)}</span>
-          </div>
-          <span class="muted">השלב הבא</span>
-          <div class="row">
-            <span class="big">{next.title}</span>
-            <span class="big num">{hhmm(next.at)}</span>
-          </div>
-          <span class="muted">{dayName(next.at)} · שלב {done + 1} מתוך {plan.steps.length}. לחיצה פותחת את כל התוכנית.</span>
-        </a>
+      {running.length > 0 ? (
+        <section style="display:flex;flex-direction:column;gap:10px" aria-label="אפיות רצות" data-testid="running-list">
+          {running.map((plan) => {
+            const next = plan.steps.find((s) => s.doneAt === undefined)!;
+            const done = plan.steps.filter((x) => x.doneAt !== undefined).length;
+            return (
+              <a class="card sun running" href="#/plan" onClick={() => selectPlan(planId(plan))} style="text-decoration:none;color:inherit" aria-label={`אפייה רצה: ${plan.title}`} data-testid="running">
+                <div class="row">
+                  <span class="sub">▶ {running.length > 1 ? 'אפייה' : 'תוכנית'} רצה עכשיו · {plan.title}</span>
+                  <span class="tag">{until(next.at)}</span>
+                </div>
+                <span class="muted">השלב הבא</span>
+                <div class="row">
+                  <span class="big">{next.title}</span>
+                  <span class="big num">{hhmm(next.at)}</span>
+                </div>
+                <span class="muted">{dayName(next.at)} · שלב {done + 1} מתוך {plan.steps.length}. לחיצה פותחת את כל התוכנית.</span>
+              </a>
+            );
+          })}
+        </section>
       ) : (
         <section class="card" data-testid="idle">
           <span class="big">אין תוכנית רצה</span>

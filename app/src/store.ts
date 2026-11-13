@@ -111,7 +111,10 @@ export interface State {
   flourPresets: FlourPreset[];
   customFlours: FlourInfo[];
   starter: Starter;
+  /** the bake that is open in the plan tab */
   plan: ActivePlan | null;
+  /** other bakes running at the same time */
+  others: ActivePlan[];
   roomTempC: number;
   history: { title: string; finishedAt: number; notes?: string[]; photos?: PlanPhoto[]; readings?: Reading[] }[];
 }
@@ -126,6 +129,7 @@ const initial = (): State => ({
   customFlours: [],
   starter: { name: 'הסטארטר הקשה שלי', type: 'stiff', hydration: 0.5, lastFedAt: Date.now(), inFridge: true, known: false },
   plan: null,
+  others: [],
   roomTempC: 24,
   history: [],
 });
@@ -144,19 +148,50 @@ let state = load();
 registerFlours(state.customFlours);
 const listeners = new Set<() => void>();
 
+/** every running bake, the open one first */
+export const allPlans = (s: State): ActivePlan[] => (s.plan ? [s.plan, ...s.others] : [...s.others]);
+
+/** a bake's identity: when it was created */
+export const planId = (p: ActivePlan): string => String(p.createdAt);
+
+/** the steps of every bake as the phone's alarm clock sees them: ids carry the bake, titles carry its name when there are several */
+export function alarmSteps(s: State): Step[] {
+  const all = allPlans(s);
+  return all.flatMap((p) => p.steps.map((x) => ({ ...x, id: `${planId(p)}:${x.id}`, title: all.length > 1 ? `${p.title} · ${x.title}` : x.title })));
+}
+
+/** change one running bake, wherever it is */
+export function updatePlan(id: string, fn: (p: ActivePlan) => ActivePlan): void {
+  const s = state;
+  if (s.plan && planId(s.plan) === id) setState({ plan: fn(s.plan) });
+  else setState({ others: s.others.map((p) => (planId(p) === id ? fn(p) : p)) });
+}
+
+/** open another running bake in the plan tab */
+export function selectPlan(id: string): void {
+  const all = allPlans(state);
+  const p = all.find((x) => planId(x) === id);
+  if (p) setState({ plan: p, others: all.filter((x) => x !== p) });
+}
+
+/** start another bake without closing the one that is running */
+export function addPlan(p: ActivePlan): void {
+  setState({ plan: p, others: allPlans(state) });
+}
+
 export function setState(patch: Partial<State>): void {
-  const before = state.plan?.steps ?? [];
+  const before = alarmSteps(state);
   state = { ...state, ...patch };
+  // closing the open bake opens the next one
+  if (!state.plan && state.others.length > 0) state = { ...state, plan: state.others[0]!, others: state.others.slice(1) };
   if (patch.customFlours) registerFlours(state.customFlours);
-  const after = state.plan?.steps ?? [];
-  if (before !== after) {
-    const ops = alarmOps(before, after);
-    if (ops.length > 0) {
-      try {
-        window.SourdoughAlarms?.apply(ops);
-      } catch {
-        /* the plan still works without the native alarm */
-      }
+  const after = alarmSteps(state);
+  const ops = alarmOps(before, after);
+  if (ops.length > 0) {
+    try {
+      window.SourdoughAlarms?.apply(ops);
+    } catch {
+      /* the plan still works without the native alarm */
     }
   }
   try {
