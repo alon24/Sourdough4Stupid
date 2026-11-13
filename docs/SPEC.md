@@ -884,3 +884,10 @@ Scenarios, each covered by an e2e test that clicks through it:
 5. Looking back: a finished bake appears under "what I baked lately" with its notes.
 6. Nothing running: a clear way to start.
 Also: the starter questionnaire accepts typed values (hydration percent, grams, days or weeks in the fridge, hours since feeding); a flour appears once per blend.
+
+## 4.20 כמה אפיות במקביל
+
+- אפשר להריץ כמה אפיות יחד (מתכון X ומתכון Y). `plan` הוא האפייה הפתוחה בלשונית "תוכנית", `others` הן האחרות.
+- הבית מציג כרטיס לכל אפייה רצה: שם, השלב הבא, ספירה לאחור. לחיצה פותחת אותה. בלשונית "תוכנית" יש מחליף בין האפיות, ו"אפייה נוספת" מוסיפה בלי לסגור את הקיימת.
+- שעונים והתראות: המזהה כולל את האפייה (`createdAt:step`), והכותרת כוללת את שם האפייה כשיש יותר מאחת.
+- סיום או ביטול סוגר רק את הפתוחה, והבאה נפתחת. סנכרון: כל אפייה היא רשומה נפרדת (`plan:<id>`), הבחירה נשארת מקומית.

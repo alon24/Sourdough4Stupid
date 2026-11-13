@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import { hashOf, SyncEngine, trackChanges, type Conflict, type SyncRec } from '../../../core/src/index';
-import { getState, hadSavedState, setState, subscribe, type State } from '../store';
+import { allPlans, getState, hadSavedState, planId, setState, subscribe, type ActivePlan, type State } from '../store';
 import { getToken, isConnected } from './auth';
 import { driveRemote } from './drive';
 
@@ -40,7 +40,8 @@ export function itemsOf(s: State): Map<string, unknown> {
   s.inclusions.forEach((r) => m.set(`incl:${r.id}`, r));
   s.history.forEach((h) => m.set(`history:${h.finishedAt}:${hashOf(h.title)}`, h));
   m.set('starter', s.starter);
-  if (s.plan) m.set('plan', s.plan);
+  // every running bake is its own record; which one is open stays on the device
+  allPlans(s).forEach((p) => m.set(`plan:${planId(p)}`, p));
   return m;
 }
 
@@ -48,7 +49,13 @@ export function itemsOf(s: State): Map<string, unknown> {
 export function patchFrom(recs: SyncRec[], cur: State): Partial<State> {
   const live = recs.filter((r) => !r.deleted);
   const of = <T,>(prefix: string) => live.filter((r) => r.key.startsWith(prefix)).map((r) => r.data as T);
-  const plan = live.find((r) => r.key === 'plan')?.data as State['plan'] | undefined;
+  const seen = new Set<number>();
+  const plans = live
+    .filter((r) => r.key === 'plan' || r.key.startsWith('plan:'))
+    .map((r) => r.data as ActivePlan)
+    .filter((p) => !seen.has(p.createdAt) && seen.add(p.createdAt))
+    .sort((a, b) => a.createdAt - b.createdAt);
+  const open = plans.find((p) => cur.plan && p.createdAt === cur.plan.createdAt) ?? plans[0] ?? null;
   const starter = live.find((r) => r.key === 'starter')?.data as State['starter'] | undefined;
   const inclusions = of<State['inclusions'][number]>('incl:');
   return {
@@ -58,7 +65,8 @@ export function patchFrom(recs: SyncRec[], cur: State): Partial<State> {
     inclusions: inclusions.length ? inclusions : cur.inclusions,
     history: of<State['history'][number]>('history:').sort((a, b) => b.finishedAt - a.finishedAt),
     starter: starter ?? cur.starter,
-    plan: plan ?? null,
+    plan: open,
+    others: plans.filter((p) => p !== open),
   };
 }
 

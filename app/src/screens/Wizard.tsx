@@ -7,7 +7,7 @@ import { toActive } from '../activePlan';
 import { FlourMix, mixToBlend, type MixItem } from './FlourMix';
 import { toLocalInput } from '../format';
 import { InclusionsEditor } from './InclusionsEditor';
-import { daysSinceFed, setState, useStore, type Recipe } from '../store';
+import { addPlan, daysSinceFed, setState, useStore, type Recipe } from '../store';
 
 const WEIGHTS = [750, 900, 1000, 1200];
 
@@ -152,7 +152,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
       ...(starterMode && !ready ? { overnightFeed: overnight } : {}), ...(starterMode ? { useAllStarter: true } : {}),
     };
     const parts = [loaves && `${loaves} לחמים`, rolls && `${rolls} ${rollsName}`, ...picked].filter(Boolean);
-    setState({ plan: { ...toActive(plan(input), input, parts.join(' · ')), ...(initial ? { recipeId: initial.id } : {}) } });
+    addPlan({ ...toActive(plan(input), input, parts.join(' · ')), ...(initial ? { recipeId: initial.id } : {}) });
     location.hash = '#/plan';
   };
 

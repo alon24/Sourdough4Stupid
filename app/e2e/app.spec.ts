@@ -913,3 +913,33 @@ test('a saved recipe with the same flour twice shows a message and merges the ro
   await expect(page.getByTestId('mix-row')).toHaveCount(2);
   await expect(page.getByLabel('אחוז', { exact: true }).first()).toHaveValue('30');
 });
+
+test('two bakes at once: both on home, switch between them, alarms carry the bake name, finishing one keeps the other', async ({ page }) => {
+  await page.addInitScript(() => {
+    (window as unknown as { __ops: unknown[] }).__ops = [];
+    (window as unknown as { SourdoughAlarms: unknown }).SourdoughAlarms = { apply: (o: unknown[]) => (window as unknown as { __ops: unknown[] }).__ops.push(...o) };
+  });
+  await page.reload();
+  await page.goto('/#/new');
+  await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
+  await page.goto('/#/new');
+  await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
+  await expect(page.getByTestId('bake-switch')).toBeVisible();
+  await page.goto('/#/');
+  await expect(page.getByTestId('running')).toHaveCount(2);
+  const ops = await page.evaluate(() => (window as unknown as { __ops: { op: string; id: string; title?: string }[] }).__ops);
+  // the last word on each alarm
+  const last = new Map(ops.filter((o) => o.op === 'set').map((o) => [o.id, o]));
+  const sets = [...last.values()];
+  expect(sets.length).toBeGreaterThan(2);
+  expect(new Set(sets.map((o) => o.id.split(':')[0])).size).toBe(2);
+  expect(sets.every((o) => o.title!.includes(' · '))).toBe(true);
+  // open the second one and cancel it: the first stays
+  await page.getByTestId('running').nth(1).click();
+  await page.getByRole('button', { name: 'בטל תוכנית' }).click();
+  await page.goto('/#/');
+  await expect(page.getByTestId('running')).toHaveCount(1);
+  const st = await page.evaluate(() => JSON.parse(localStorage.getItem('machmetzet.v1')!));
+  expect(st.others).toHaveLength(0);
+  expect(st.plan).not.toBeNull();
+});
