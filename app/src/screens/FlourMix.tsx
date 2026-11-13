@@ -137,15 +137,17 @@ export function FlourMix({ items, onChange, onSaved, onValidity }: { items: MixI
       <details>
         <summary>קמח משלי</summary>
         {st.customFlours.map((f) => (
-          <div class="row">
+          <div class="row customrow">
             <span>{f.name} <span class="muted">({f.absorption >= 0 ? '+' : ''}{Math.round(f.absorption * 100)} נק' מים)</span></span>
             <button class="btn small" aria-label={`מחק את ${f.name}`} onClick={() => setState({ customFlours: st.customFlours.filter((x) => x.id !== f.id) })}>×</button>
           </div>
         ))}
-        <div class="row">
-          <input aria-label="שם קמח חדש" placeholder="שם הקמח" value={newFlour} onInput={(e) => setNewFlour(e.currentTarget.value)} />
-          <input aria-label="ספיגת מים" type="number" style="width:64px" value={newAbs} onInput={(e) => setNewAbs(+e.currentTarget.value || 0)} />
-          <span class="muted">נק' מים מול לבן</span>
+        <div class="customadd">
+          <input aria-label="שם קמח חדש" placeholder="שם הקמח" style="grid-column:1/-1" value={newFlour} onInput={(e) => setNewFlour(e.currentTarget.value)} />
+          <label class="absfield">
+            <span class="muted">נק' מים מול לבן</span>
+            <input aria-label="ספיגת מים" type="number" value={newAbs} onInput={(e) => setNewAbs(+e.currentTarget.value || 0)} />
+          </label>
           <button class="btn small" disabled={!newFlour.trim()} onClick={() => {
             setState({ customFlours: [...st.customFlours, { id: `c${Date.now()}`, name: newFlour.trim(), absorption: newAbs / 100 }] });
             setNewFlour(''); setNewAbs(0);
