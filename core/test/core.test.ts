@@ -822,7 +822,7 @@ describe('switching during the bake', () => {
   });
 });
 
-import { combineCheck, mergeItems, scaleItems, itemFrom, DEFAULT_ITEM_TYPES, starterNeed } from '../src/index';
+import { combineCheck, mergeItems, scaleItems } from '../src/index';
 
 describe('scaling and combining', () => {
   const T = (id: string) => DEFAULT_ITEM_TYPES.find((t) => t.id === id)!;
