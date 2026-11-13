@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import {
-  buildChain, combineCheck, DEFAULT_ITEM_TYPES, mergeItems, scaleItems, type Part, hydrationAdvice, itemFrom, plan, starterCheck, starterNeed, suggestHydration, type Item,
+  buildChain, combineCheck, loafHe, rollsHe, DEFAULT_ITEM_TYPES, mergeItems, scaleItems, type Part, hydrationAdvice, itemFrom, plan, starterCheck, starterNeed, suggestHydration, type Item,
   type BlendShare, type LoafShape, type PlanInput,
 } from '../../../core/src/index';
 import { toActive } from '../activePlan';
@@ -182,7 +182,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
       ...(enrich !== 'none' && rolls > 0 ? { rollEnrich: enrich } : {}),
       ...(starterMode && !ready ? { overnightFeed: overnight } : {}), ...(starterMode ? { useAllStarter: true } : {}),
     };
-    const parts = [loaves && loavesText(loaves), rolls && `${rolls} ${rollsName}`, ...picked].filter(Boolean);
+    const parts = [loaves && loavesText(loaves), rolls && rollsHe(rolls, rollsName), ...picked].filter(Boolean);
     const base = `${initial?.name ?? parts.join(' · ')}, ${shortDate(at)}`;
     const taken = new Set(allPlans(getState()).map((p) => p.title));
     let title = base;
@@ -578,7 +578,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
 
 /** "2 כיכרות + 12 לחמניות" */
 const describe = (items: Item[]): string =>
-  items.map((i) => `${i.count} ${i.name && i.type !== 'rolls' && i.type !== 'loaf' && i.type !== 'pizza' && i.type !== 'bagel' && i.type !== 'pan' ? i.name : (DEFAULT_ITEM_TYPES.find((t) => t.id === i.type)?.plural ?? i.name ?? '')}`).join(' + ');
+  items.map((i) => i.type === 'loaf' ? loafHe(i.count) : i.type === 'rolls' ? rollsHe(i.count) : `${i.count} ${i.name && i.type !== 'rolls' && i.type !== 'loaf' && i.type !== 'pizza' && i.type !== 'bagel' && i.type !== 'pan' ? i.name : (DEFAULT_ITEM_TYPES.find((t) => t.id === i.type)?.plural ?? i.name ?? '')}`).join(' + ');
 
 const groupOf = (i: Item): 'loaf' | 'rolls' => DEFAULT_ITEM_TYPES.find((t) => t.id === i.type)?.group ?? 'rolls';
 

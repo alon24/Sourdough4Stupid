@@ -1,3 +1,4 @@
+import { loafHe, rollsHe } from './hebrew.js';
 import { splitOf, type PlanInput, type Step } from './plan.js';
 import { tempFactor } from './starter.js';
 
@@ -159,8 +160,8 @@ export function branchSummary(branches: Branch[]): string {
   const rolls = branches.find((b) => b.kind === 'rolls');
   const same = loaves.every((b) => b.weight === loaves[0]?.weight);
   return [
-    loaves.length > 0 && (same ? `${loaves.length} כיכרות × ${Math.round(loaves[0]!.weight)} ג'` : loaves.map((b) => `${Math.round(b.weight)} ג'`).join(' + ')),
-    rolls && `${rolls.count} ${rolls.label} × ${Math.round(rolls.weight)} ג'`,
+    loaves.length > 0 && (same ? `${loafHe(loaves.length)} × ${Math.round(loaves[0]!.weight)} ג'` : loaves.map((b) => `${Math.round(b.weight)} ג'`).join(' + ')),
+    rolls && `${rollsHe(rolls.count, rolls.label)} × ${Math.round(rolls.weight)} ג'`,
   ].filter(Boolean).join(' + ');
 }
 

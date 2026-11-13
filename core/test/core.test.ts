@@ -610,7 +610,7 @@ describe('reference scenario: 32 g stiff from the fridge, 300 g tomorrow, 2 loav
     expect(d.alarm).toBe(true);
     expect(d.at).toBeGreaterThan(by('fold')[3]!.at);
     expect(d.note).toContain('50%–60%');
-    expect(d.note).toContain('2 כיכרות × 1000');
+    expect(d.note).toContain('שתי כיכרות × 1000');
     expect(d.note).toMatch(/7 לחמניות × 10\d ג'/);
     expect(d.note).toContain('15–20');
   });
@@ -726,7 +726,7 @@ describe('branches after the split', () => {
     expect(t.branches.map((b) => b.id)).toEqual(['L1', 'L2', 'rolls']);
     for (const b of t.branches) expect(t.steps.some((s) => s.track === b.id)).toBe(true);
     expect(t.steps.filter((s) => s.kind === 'bake')).toHaveLength(2);
-    expect(branchSummary(t.branches)).toContain('2 כיכרות × 1000');
+    expect(branchSummary(t.branches)).toContain('שתי כיכרות × 1000');
   });
   it('baking one loaf now moves only that loaf', () => {
     const now = new Date('2026-11-13T09:00:00').getTime();

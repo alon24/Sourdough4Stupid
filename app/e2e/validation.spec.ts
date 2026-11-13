@@ -77,7 +77,7 @@ test('walkthrough with screenshots: the reference bake end to end on a phone vie
   if (await feed.count()) { await feed.click(); await page.getByRole('button', { name: 'אישור, ממשיכים לתוכנית' }).click(); } else await startBake(page);
 
   // plan
-  await expect(page.getByTestId('split')).toContainText('2 כיכרות × 1000');
+  await expect(page.getByTestId('split')).toContainText('שתי כיכרות × 1000');
   await shot(page, '04-plan');
   const open = async (name: RegExp, shotName: string, must: string[]) => {
     await page.getByRole('button', { name }).first().click();
@@ -87,7 +87,7 @@ test('walkthrough with screenshots: the reference bake end to end on a phone vie
   };
   await open(/להאכיל סטארטר/, '05-feed', ["32 ג' סטארטר", '199', '99', 'X עמוק', '30 ג']);
   await open(/לערבב הכול יחד/, '06-mix-all-in', ["6–8"]);
-  await open(/לחלק: כיכרות ולחמניות/, '07-split', ['50%–60%', '2 כיכרות × 1000', '7 לחמניות', 'עיצוב סופי']);
+  await open(/לחלק: כיכרות ולחמניות/, '07-split', ['50%–60%', 'שתי כיכרות × 1000', '7 לחמניות', 'עיצוב סופי']);
   await open(/להעשיר את הלחמניות/, '08-enrich', ['שמן זית', 'הכיכרות נשארות רזות']);
   await open(/לעצב 7 לחמניות/, '09-shape-rolls', ['כדורים מתוחים', 'בלי קמח', 'נייר אפייה', '1.5–2 שעות', 'מקרר']);
   await open(/לאפות לחמניות/, '10-bake-rolls', ['230', '12', '210', 'שומשום']);

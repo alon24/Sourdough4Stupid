@@ -1,3 +1,4 @@
+import { loafHe, rollsHe } from './hebrew.js';
 /** Backward planner: from "bread out of the oven at T" to a list of timed steps. */
 import { bakeProfile, type LoafShape } from './bake.js';
 import { buildChain, type Stage } from './build.js';
@@ -65,8 +66,8 @@ export function splitOf(total: number, loaves: number, loafWeight: number, rolls
 
 export const splitText = (sp: Split, rollsName = 'לחמניות'): string =>
   [
-    sp.loaves > 0 && `${sp.loaves} כיכרות × ${Math.round(sp.loafWeight)} ג'`,
-    sp.rolls > 0 && `${sp.rolls} ${rollsName} × ${Math.round(sp.rollWeight)} ג' (${Math.round(sp.rollDough)} ג' בסך הכול)`,
+    sp.loaves > 0 && `${loafHe(sp.loaves)} × ${Math.round(sp.loafWeight)} ג'`,
+    sp.rolls > 0 && `${rollsHe(sp.rolls, rollsName)} × ${Math.round(sp.rollWeight)} ג' (${Math.round(sp.rollDough)} ג' בסך הכול)`,
   ].filter(Boolean).join(' + ');
 
 export const ENRICH_PCT = 0.055;
@@ -192,7 +193,7 @@ export function plan(input: PlanInput, now: number = Date.now()): Plan {
     [BULK_DONE, rolls > 0 && hasLoaves ? `לחלק: ${splitText(split)}` : undefined, hasLoaves ? loafHow : undefined, rolls > 0 ? 'לחמניות: ההוראות המלאות בשלב "לעצב לחמניות" כמה דקות אחרי.' : undefined]
       .filter(Boolean).join('\n'));
   if (rolls > 0) {
-    add('shapeRolls', `לעצב ${rolls} לחמניות (${Math.round(split.rollWeight)} ג' כל אחת)`, divideAt + 20 * MIN, true,
+    add('shapeRolls', `לעצב ${rollsHe(rolls)} (${Math.round(split.rollWeight)} ג' כל אחת)`, divideAt + 20 * MIN, true,
       `לחתוך ${rolls} חתיכות של כ־${Math.round(split.rollWeight)} ג'.\n${rollHow}`);
   }
   if (rolls > 0 && input.rollEnrich) {

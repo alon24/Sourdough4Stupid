@@ -540,7 +540,7 @@ test('reference bake: 32 g stiff, 300 g tomorrow, 2 loaves of 1 kg + rolls, spli
   await goStep(page, 4);
   const feed = page.getByRole('button', { name: /צריך להגדיל את הסטארטר/ });
   if (await feed.count()) { await feed.click(); await page.getByRole('button', { name: 'אישור, ממשיכים לתוכנית' }).click(); } else await startBake(page);
-  await expect(page.getByTestId('split')).toContainText('2 כיכרות × 1000');
+  await expect(page.getByTestId('split')).toContainText('שתי כיכרות × 1000');
   await expect(page.getByTestId('split')).toContainText('7 לחמניות');
   await page.getByRole('button', { name: /להאכיל סטארטר/ }).click();
   await expect(page.getByRole('dialog')).toContainText('32 ג\' סטארטר');
@@ -1076,7 +1076,7 @@ test('two bakes at once: both on home, switch between them, alarms carry the bak
   expect(new Set(sets.map((o) => o.id.split(':')[0])).size).toBe(2);
   expect(sets.every((o) => o.title!.includes(' · '))).toBe(true);
   // open the second one and cancel it: the first stays
-  await page.getByTestId('running').nth(1).click();
+  await page.getByTestId('running').nth(1).getByRole('link').click();
   await page.getByRole('button', { name: 'בטל אפייה' }).click();
   await page.getByRole('button', { name: 'בטל ושמור ביומן' }).click();
   await page.goto('/#/');
@@ -1098,9 +1098,9 @@ test('scaling and combining: a base batch times N, other recipes join the dough,
   await page.reload();
   await page.goto('/#/new/a');
   const scale = page.getByTestId('scale');
-  await expect(scale).toContainText('1 כיכרות + 6 לחמניות');
+  await expect(scale).toContainText('כיכר אחת + 6 לחמניות');
   await page.getByRole('button', { name: 'עוד הכפלת המתכון' }).click();
-  await expect(page.getByTestId('scaled')).toContainText('2 כיכרות + 12 לחמניות');
+  await expect(page.getByTestId('scaled')).toContainText('שתי כיכרות + 12 לחמניות');
   const dough2 = await page.getByTestId('scaled-total').innerText();
   // the base batch is untouched
   await goStep(page, 1);
@@ -1388,4 +1388,64 @@ test('flows 3: finishing a bake saves how it went and a closing note to the log'
   expect(st.history[0].status).toBe('failed');
   expect(st.history[0].notes).toContain('הבצק היה רטוב מדי');
   expect(st.plan).toBeNull();
+});
+
+test('flows 4: quick actions on the home cards and at the top of the plan, centered bake tabs, and proper Hebrew counts', async ({ page }) => {
+  await page.goto('/#/new');
+  await startBake(page);
+  await page.goto('/#/new');
+  await startBake(page);
+  // titles use "לחם אחד", never "1 לחמים"
+  await expect(page.locator('h1 + *, .sub').first()).not.toContainText('1 לחמים');
+  await page.goto('/#/');
+  const cards = page.getByTestId('running');
+  await expect(cards).toHaveCount(2);
+  await expect(cards.first()).toContainText('לחם אחד');
+  await expect(cards.first()).not.toContainText('1 לחמים');
+  // done: the next step of the first bake is marked done without opening the plan
+  const before = await page.evaluate(() => JSON.parse(localStorage.getItem('machmetzet.v1')!).plan.steps.filter((x: { doneAt?: number }) => x.doneAt !== undefined).length);
+  await cards.first().getByRole('button', { name: /סמן כבוצע/ }).click();
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('machmetzet.v1')!).plan.steps.filter((x: { doneAt?: number }) => x.doneAt !== undefined).length)).toBeGreaterThan(before);
+  // go to a step
+  await cards.first().getByRole('button', { name: /עבור לשלב/ }).click();
+  await page.locator('.goto-list .chip').nth(3).click();
+  await expect(page.locator('.sheet')).toHaveCount(0);
+  // cancel the second bake from home: logged, the first stays
+  await cards.nth(1).getByRole('button', { name: /^בטל/ }).click();
+  await page.getByRole('button', { name: 'בטל ושמור ביומן' }).click();
+  await expect(cards).toHaveCount(1);
+  const st = await page.evaluate(() => JSON.parse(localStorage.getItem('machmetzet.v1')!));
+  expect(st.history).toHaveLength(1);
+  expect(st.history[0].status).toBe('unfinished');
+  // the plan has its actions at the top, before the bake tabs and the summary
+  await page.goto('/#/new');
+  await startBake(page);
+  const top = page.getByRole('group', { name: 'פעולות מהירות' });
+  await expect(top.getByRole('button', { name: 'בטל אפייה' })).toBeVisible();
+  const topBox = await top.boundingBox();
+  const tabBox = await page.getByTestId('bake-switch').boundingBox();
+  expect(topBox!.y).toBeLessThan(tabBox!.y);
+  // the tabs row, including "+ אפייה נוספת", is centered and every chip has the same height
+  const hs = await page.getByTestId('bake-switch').locator('.chip').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
+  expect(new Set(hs).size).toBe(1);
+  const row = await page.getByTestId('bake-switch').boundingBox();
+  const kids = await page.getByTestId('bake-switch').locator('.chip').evaluateAll((els) => els.map((e) => e.getBoundingClientRect()));
+  const left = Math.min(...kids.map((k) => k.left)) - row!.x;
+  const right = row!.x + row!.width - Math.max(...kids.map((k) => k.right));
+  expect(Math.abs(left - right)).toBeLessThan(3);
+});
+
+test('hebrew counts: one, two and many for bread and rolls', async ({ page }) => {
+  await page.goto('/#/recipes');
+  const t = await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('machmetzet.v1') ?? '{}');
+    s.plan = null;
+    s.history = [{ title: '1 לחמים, 2 לחמים · 1 לחמניות', finishedAt: Date.now(), status: 'finished' }];
+    localStorage.setItem('machmetzet.v1', JSON.stringify(s));
+    return true;
+  });
+  expect(t).toBe(true);
+  await page.reload();
+  await page.goto('/#/log');
+  await expect(page.getByTestId('log-entry').first()).toContainText('לחם אחד, שני לחמים · לחמנייה אחת');
 });

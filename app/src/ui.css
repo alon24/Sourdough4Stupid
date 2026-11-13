@@ -163,3 +163,14 @@ button.back { align-self: flex-start; margin: 8px 16px 0; background: none; bord
 .stepbox { display: contents; } .stepbox[hidden] { display: none; }
 .btn.danger { border-color: var(--coral); color: var(--coral); }
 .tempsheet { max-height: 85vh; overflow-y: auto; }
+.quick { display: flex; flex-wrap: wrap; gap: 6px; }
+.quick .btn { flex: 1 1 auto; min-width: 64px; min-height: 44px; }
+.goto-list { display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow-y: auto; }
+.goto-list .chip { justify-content: space-between; text-align: start; }
+.chips.center { justify-content: center; align-items: center; }
+.chip { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; color: inherit; font: inherit; }
+.chip.add { border-style: dashed; }
+.quick.top { justify-content: flex-start; }
+.running .quick { flex-wrap: nowrap; }
+.running .quick .btn { flex: 1 1 0; min-width: 0; padding: 0 6px; font-size: 14px; }
+.card.sun .btn.danger { color: #B3261E; border-color: #B3261E; }
