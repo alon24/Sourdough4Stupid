@@ -12,7 +12,7 @@ export function toActive(p: Plan, input: PlanInput, title: string, now = Date.no
     branches: tr.branches,
     total: d.totalDough,
     input,
-    split: input.loaves + input.rolls > 0 ? splitText(splitOf(d.totalDough, input.loaves, input.loafWeight ?? 900, input.rolls)) : undefined,
+    split: input.loaves + input.rolls > 0 ? splitText(splitOf(d.totalDough, input.loaves, input.loafWeight ?? 900, input.rolls), input.rollsName) : undefined,
     build:
       p.chain.length === 0
         ? 'הסטארטר כבר מוכן'

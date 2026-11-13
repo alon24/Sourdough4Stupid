@@ -132,3 +132,4 @@ textarea { font: inherit; color: inherit; background: transparent; border: 2px s
 .thumb { margin: 0; flex: 0 0 120px; font-size: 12px; }
 .thumb img, .thumb .ph { width: 120px; height: 120px; object-fit: cover; border-radius: 16px; background: var(--ground); display: block; }
 .thumb figcaption { margin-top: 4px; color: var(--muted); }
+.warn { display: flex; flex-direction: column; gap: 6px; border: 2px solid var(--coral); border-radius: 20px; padding: 10px 14px; }

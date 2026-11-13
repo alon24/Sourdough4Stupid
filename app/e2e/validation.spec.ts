@@ -22,11 +22,12 @@ test('walkthrough with screenshots: the reference bake end to end on a phone vie
 
   // wizard, starter mode
   await page.goto('/#/new');
-  await page.getByRole('button', { name: 'מכמה סטארטר' }).click();
   await page.getByLabel('רוצה סטארטר (גרם)').fill('300');
   await page.getByLabel('יש לי עכשיו (גרם)').fill('32');
   await page.getByRole('combobox', { name: 'משקל לחם' }).selectOption('1000');
-  for (let i = 0; i < 7; i++) await page.getByRole('button', { name: 'עוד לחמניות' }).click();
+  await page.getByRole('button', { name: 'עוד לחם' }).click();
+  await page.getByRole('button', { name: '+ לחמניות' }).click();
+  for (let i = 0; i < 6; i++) await page.getByRole('button', { name: 'עוד לחמניות' }).click();
   await page.getByText('האכלה אחת ללילה').click();
   await page.getByRole('button', { name: /הכול יחד/ }).click();
   await page.getByRole('combobox', { name: 'העשרת הלחמניות' }).selectOption('oil');

@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import {
-  buildChain, hydrationAdvice, plan, suggestHydration, yieldOptions,
+  buildChain, DEFAULT_ITEM_TYPES, hydrationAdvice, itemFrom, plan, starterCheck, suggestHydration, type Item,
   type BlendShare, type LoafShape, type PlanInput,
 } from '../../../core/src/index';
 import { toActive } from '../activePlan';
@@ -31,9 +31,15 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
   const isRecipe = kind === 'recipe';
   const initial = recipes.find((r) => r.id === recipeId);
   const [name, setName] = useState(initial?.name ?? '');
-  const [loaves, setLoaves] = useState(initial?.loaves ?? 2);
-  const [rolls, setRolls] = useState(initial?.rolls ?? 0);
-  const [weight, setWeight] = useState(initial?.weight ?? 900);
+  const [items, setItems] = useState<Item[]>(initial ? itemsOf(initial) : [itemFrom(DEFAULT_ITEM_TYPES[0]!)]);
+  const loafItems = items.filter((i) => groupOf(i) === 'loaf');
+  const rollItems = items.filter((i) => groupOf(i) === 'rolls');
+  const loaves = loafItems.reduce((n, i) => n + i.count, 0);
+  const rolls = rollItems.reduce((n, i) => n + i.count, 0);
+  const weight = loaves ? Math.round(loafItems.reduce((n, i) => n + i.count * i.weight, 0) / loaves) : 1000;
+  const rollWeight = rolls ? Math.round(rollItems.reduce((n, i) => n + i.count * i.weight, 0) / rolls) : 90;
+  const rollsName = rollItems.length === 1 ? (rollItems[0]!.name ?? 'לחמניות') : 'לחמניות';
+  const rollsBake = rollItems.map((i) => DEFAULT_ITEM_TYPES.find((t) => t.id === i.type)?.bakeNote).find(Boolean);
   const [shape, setShape] = useState<LoafShape>(initial?.shape ?? 'free');
   const [at, setAt] = useState(defaultTarget());
   const [picked, setPicked] = useState<string[]>(initial?.inclusions ?? []);
@@ -81,16 +87,14 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
   };
   const startMix = () => changeMix(blend.map((b) => ({ flour: b.id, grams: Math.round(b.pct * 1000) })));
 
-  const [mode, setMode] = useState<'pieces' | 'starter'>('pieces');
-  const [want, setWant] = useState(300);
-  const [have, setHave] = useState(starter.grams ?? 30);
+  const [useOverride, setUseOverride] = useState<number | null>(null);
+  const [have, setHave] = useState(starter.grams ?? 100);
+  const check = starterCheck(items, have);
+  const want = useOverride ?? (check.need || 100);
   const [ready, setReady] = useState(false);
+  const pieceItems = items;
   const nothing = loaves + rolls === 0;
-  const starterMode = mode === 'starter';
-  const incl = INCLUSIONS.filter((i) => picked.includes(i.name)).reduce((sum, i) => sum + i.pct, 0);
-  const options = starterMode && want > 0
-    ? yieldOptions(want, { loafWeight: weight, hydration, inclusionPct: incl }).slice(0, 6)
-    : [];
+  const starterMode = true;
   const chain = starterMode && !ready && want > 0 && have > 0
     ? buildChain({ have, target: want, type: starter.type, hydration: starter.hydration, tempC: roomTempC, overnight })
     : [];
@@ -98,14 +102,15 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
   const toggle = (name: string) => setPicked(picked.includes(name) ? picked.filter((x) => x !== name) : [...picked, name]);
 
   const load = (r: Recipe) => {
-    setLoaves(r.loaves); setRolls(r.rolls); setWeight(r.weight); setShape(r.shape); setPicked(r.inclusions);
+    setItems(itemsOf(r)); setUseOverride(null); setShape(r.shape); setPicked(r.inclusions);
     setKneading(r.kneading); setCold(r.cold); setFolds(r.folds ?? 4); setFoldGap(r.foldGapMin ?? 0); setAutolyse(r.autolyse ?? true); setEnrich(r.rollEnrich ?? 'none'); setHydration(r.hydration); setMix(r.mix); setMixEpoch((e) => e + 1);
   };
   const saveRecipe = () => {
     const items = mix ?? blend.map((b) => ({ flour: b.id, grams: Math.round(b.pct * 1000) }));
+    const itemsToSave = pieceItems;
     const r: Recipe = {
       id: initial?.id ?? `r${Date.now()}`, name: name.trim(), fav: initial?.fav ?? false,
-      loaves, rolls, weight, shape, inclusions: picked, kneading, cold, folds, foldGapMin: foldGap, autolyse, rollEnrich: enrich, hydration, mix: items,
+      loaves, rolls, weight, shape, inclusions: picked, kneading, cold, folds, foldGapMin: foldGap, autolyse, rollEnrich: enrich, hydration, mix: items, items: itemsToSave,
     };
     setState({ recipes: initial ? recipes.map((x) => (x.id === r.id ? r : x)) : [...recipes, r] });
     location.hash = '#/recipes';
@@ -115,7 +120,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
   const changedFromRecipe = (): boolean => {
     if (!initial) return false;
     const norm = (r: { loaves: number; rolls: number; weight: number; shape: string; inclusions: string[]; kneading: string; cold: boolean; hydration: number; mix: object }) => JSON.stringify([r.loaves, r.rolls, r.weight, r.shape, [...r.inclusions].sort(), r.kneading, r.cold, r.hydration, r.mix]);
-    return norm(initial) !== norm({ loaves, rolls, weight, shape, inclusions: picked, kneading, cold, hydration, mix: currentItems() });
+    return norm(initial) !== norm({ loaves, rolls, weight, shape, inclusions: picked, kneading, cold, hydration, mix: currentItems() }) || JSON.stringify(itemsOf(initial)) !== JSON.stringify(items);
   };
   const [askDerive, setAskDerive] = useState(false);
   const go = () => (changedFromRecipe() ? setAskDerive(true) : doGo());
@@ -123,7 +128,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
     if (!initial) return;
     const r: Recipe = {
       id: `r${Date.now()}`, name: `${initial.name} (גרסה)`, fav: false, derivedFrom: initial.id,
-      loaves, rolls, weight, shape, inclusions: picked, kneading, cold, hydration, mix: currentItems(),
+      loaves, rolls, weight, shape, inclusions: picked, kneading, cold, hydration, mix: currentItems(), items: pieceItems,
     };
     setState({ recipes: [...recipes, r] });
     doGo();
@@ -132,7 +137,8 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
   const doGo = () => {
     const inclusions = INCLUSIONS.filter((i) => picked.includes(i.name));
     const input: PlanInput = {
-      outOfOvenAt: at, loaves, rolls, loafWeight: weight, loafShape: shape,
+      outOfOvenAt: at, loaves, rolls, loafWeight: weight, rollWeight, loafShape: shape,
+      ...(rolls > 0 ? { rollsName, ...(rollsBake ? { rollsBake } : {}) } : {}),
       starter: {
         type: starter.type, hydration: starter.hydration, daysInFridge: starter.weak ? Math.max(daysSinceFed(starter), 15) : daysSinceFed(starter),
         ...(starterMode && !ready ? { haveGrams: have } : {}),
@@ -143,7 +149,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
       ...(enrich !== 'none' && rolls > 0 ? { rollEnrich: enrich } : {}),
       ...(starterMode && !ready ? { overnightFeed: overnight } : {}), ...(starterMode ? { useAllStarter: true } : {}),
     };
-    const parts = [loaves && `${loaves} לחמים`, rolls && `${rolls} לחמניות`, ...picked].filter(Boolean);
+    const parts = [loaves && `${loaves} לחמים`, rolls && `${rolls} ${rollsName}`, ...picked].filter(Boolean);
     setState({ plan: { ...toActive(plan(input), input, parts.join(' · ')), ...(initial ? { recipeId: initial.id } : {}) } });
     location.hash = '#/plan';
   };
@@ -172,77 +178,105 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
         )
       )}
 
-      <div class="seg" role="group" aria-label="מאיפה מתחילים">
-        <button class={!starterMode ? 'on' : ''} aria-pressed={!starterMode} onClick={() => setMode('pieces')}>מכמה לחמים</button>
-        <button class={starterMode ? 'on' : ''} aria-pressed={starterMode} onClick={() => setMode('starter')}>מכמה סטארטר</button>
-      </div>
-
-      {starterMode && (
-        <section class="card" aria-label="כמה סטארטר">
-          <div class="grid2">
-            <label class="field">
-              רוצה סטארטר (גרם)
-              <input type="number" inputMode="numeric" min="1" value={want} onInput={(e) => setWant(+e.currentTarget.value)} />
-            </label>
-            <label class="field">
-              יש לי עכשיו (גרם)
-              <input type="number" inputMode="numeric" min="1" value={have} disabled={ready} onInput={(e) => setHave(+e.currentTarget.value)} />
-            </label>
-          </div>
-          <label class="row" style="justify-content:flex-start;min-height:48px">
-            <input type="checkbox" checked={ready} onChange={(e) => setReady(e.currentTarget.checked)} style="width:24px;height:24px" />
-            הסטארטר כבר מוכן ועל השיא
+      <section class="card" aria-label="כמה סטארטר" data-testid="starter-section">
+        <strong>הסטארטר שלי</strong>
+        <div class="grid2">
+          <label class="field">
+            יש לי עכשיו (גרם)
+            <input type="number" inputMode="numeric" min="1" value={have} onInput={(e) => setHave(+e.currentTarget.value)} />
           </label>
-          {!ready && (
-            <label class="row" style="justify-content:flex-start;min-height:48px">
-              <input type="checkbox" checked={overnight} onChange={(e) => setOvernight(e.currentTarget.checked)} style="width:24px;height:24px" />
-              האכלה אחת ללילה (1:6:3, כ־10–12 שעות בחדר)
-            </label>
-          )}
-          {chain.length > 0 && (
-            <span data-testid="chain" class="muted">
-              {chain.length === 1 ? 'האכלה אחת' : `${chain.length} האכלות`}, בסך הכול כ־<span class="num">{Math.round(chainHours)}</span> שעות לפני הערבוב.
-            </span>
-          )}
-          <span class="sub">מה יוצא מזה</span>
-          <div class="chips" role="group" aria-label="חלוקה">
-            {options.map((o) => (
-              <button
-                class={`chip ${o.loaves === loaves && o.rolls === rolls ? 'on' : ''}`}
-                aria-pressed={o.loaves === loaves && o.rolls === rolls}
-                onClick={() => { setLoaves(o.loaves); setRolls(o.rolls); }}
-              >
-                {[o.loaves > 0 && `${o.loaves} לחמים`, o.rolls > 0 && `${o.rolls} לחמניות`].filter(Boolean).join(' + ')}
-              </button>
-            ))}
+          <label class="field">
+            רוצה סטארטר (גרם)
+            <input type="number" inputMode="numeric" min="1" value={want} onInput={(e) => setUseOverride(+e.currentTarget.value || null)} />
+          </label>
+        </div>
+        <label class="row" style="justify-content:flex-start;min-height:48px">
+          <input type="checkbox" checked={ready} onChange={(e) => setReady(e.currentTarget.checked)} style="width:24px;height:24px" />
+          הסטארטר כבר מוכן ועל השיא
+        </label>
+        {!ready && (
+          <label class="row" style="justify-content:flex-start;min-height:48px">
+            <input type="checkbox" checked={overnight} onChange={(e) => setOvernight(e.currentTarget.checked)} style="width:24px;height:24px" />
+            האכלה אחת ללילה (1:6:3, כ־10–12 שעות בחדר)
+          </label>
+        )}
+        {check.status === 'short' && (
+          <div role="alert" data-testid="starter-warning" class="warn">
+            <strong>אין מספיק סטארטר: חסרים <span class="num">{check.shortBy}</span> ג'.</strong>
+            <span>למה שבחרת צריך בדרך כלל כ־<span class="num">{check.need}</span> ג' (כ־100 ג' לכל ק"ג בצק), ויש <span class="num">{have}</span>. אפשר לבנות את הסטארטר בהאכלות (נתכנן אותן), או לבחור פחות.</span>
           </div>
-        </section>
-      )}
-
-      <section class="card" style="padding-block:6px">
-        <div class="row line">
-          <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start">
-            <strong style="font-size:20px">לחם</strong>
-            <div class="row" style="gap:6px">
-              <select class="tag" aria-label="משקל לחם" value={weight} onChange={(e) => setWeight(+e.currentTarget.value)}>
-                {WEIGHTS.map((w) => (
-                  <option value={w}>{w >= 1000 ? `${w / 1000} ק"ג` : `${w} ג'`} כל אחד</option>
-                ))}
-              </select>
-              <select class="tag" aria-label="צורת לחם" value={shape} onChange={(e) => setShape(e.currentTarget.value as LoafShape)}>
-                <option value="free">בסיר</option>
-                <option value="tin">בתבנית</option>
-              </select>
+        )}
+        {check.status === 'lots' && (
+          <div role="alert" data-testid="starter-lots" class="warn">
+            <strong>בטוח בכמות הסטארטר?</strong>
+            <span>המתכון מבקש בדרך כלל כ־<span class="num">{check.need}</span> ג', ויש לך <span class="num">{have}</span>. מה להשתמש?</span>
+            <div class="chips" role="group" aria-label="כמה סטארטר להשתמש">
+              {check.options.map((o) => (
+                <button class={`chip ${want === o.grams ? 'on' : ''}`} aria-pressed={want === o.grams} onClick={() => setUseOverride(o.grams)}>
+                  {o.grams} ג' · נשארים {o.leftover} ג'{o.speedPct > 0 ? ` · התפחה מהירה ב־${o.speedPct}%` : ''}
+                </button>
+              ))}
             </div>
           </div>
-          <Stepper label="לחם" value={loaves} set={setLoaves} />
-        </div>
-        <div class="row line">
-          <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start">
-            <strong style="font-size:20px">לחמניות קראסט</strong>
-            <span class="tag">90 ג' כל אחת</span>
-          </div>
-          <Stepper label="לחמניות" value={rolls} set={setRolls} max={24} />
+        )}
+        {check.status === 'ok' && <span class="muted" data-testid="starter-ok">הכמות מתאימה: כ־{check.need} ג' ויש {have}.</span>}
+        {chain.length > 0 && (
+          <span data-testid="chain" class="muted">
+            {chain.length === 1 ? 'האכלה אחת' : `${chain.length} האכלות`}, בסך הכול כ־<span class="num">{Math.round(chainHours)}</span> שעות לפני הערבוב.
+          </span>
+        )}
+      </section>
+
+      <section class="card" style="padding-block:6px" aria-label="מה אופים" data-testid="items">
+        <strong style="padding-top:8px">מה אופים</strong>
+        {items.map((it, k) => {
+          const isLoaf = groupOf(it) === 'loaf';
+          const nm = it.type === 'loaf' ? 'לחם' : it.type === 'rolls' ? 'לחמניות' : (it.name ?? 'פריט');
+          const upd = (patch: Partial<Item>) => setItems(items.map((x, j) => (j === k ? { ...x, ...patch } : x)));
+          return (
+            <div class="row line" data-testid="item-row">
+              <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start">
+                <strong style="font-size:20px">{it.type === 'rolls' ? 'לחמניות קראסט' : nm}</strong>
+                <div class="row" style="gap:6px;flex-wrap:wrap">
+                  {isLoaf ? (
+                    <>
+                      <select class="tag" aria-label={it.type === 'loaf' ? 'משקל לחם' : `משקל ${nm}`} value={it.weight} onChange={(e) => upd({ weight: +e.currentTarget.value })}>
+                        {[...new Set([...WEIGHTS, it.weight])].sort((a, b) => a - b).map((w) => (
+                          <option value={w}>{w >= 1000 ? `${w / 1000} ק"ג` : `${w} ג'`} כל אחד</option>
+                        ))}
+                      </select>
+                      <select class="tag" aria-label="צורת לחם" value={shape} onChange={(e) => setShape(e.currentTarget.value as LoafShape)}>
+                        <option value="free">בסיר</option>
+                        <option value="tin">בתבנית</option>
+                      </select>
+                    </>
+                  ) : (
+                    <label class="tag" style="display:inline-flex;gap:4px;align-items:center">
+                      <input type="number" inputMode="numeric" min="10" style="width:64px" aria-label={`משקל ${nm}`} value={it.weight} onInput={(e) => upd({ weight: Math.max(10, +e.currentTarget.value || 10) })} />
+                      ג' כל אחת
+                    </label>
+                  )}
+                  <label class="tag" style="display:inline-flex;gap:4px;align-items:center">
+                    סטארטר
+                    <input type="number" inputMode="numeric" min="1" max="40" style="width:52px" aria-label={`אחוז סטארטר ${nm}`} value={Math.round(it.starterPct * 100)} onInput={(e) => upd({ starterPct: Math.min(0.4, Math.max(0.01, (+e.currentTarget.value || 1) / 100)) })} />%
+                  </label>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px;align-items:center">
+                <Stepper label={nm} value={it.count} set={(n) => upd({ count: n })} max={24} />
+                {items.length > 1 && <button class="btn small" aria-label={`הסר ${nm}`} onClick={() => setItems(items.filter((_, j) => j !== k))}>הסר</button>}
+              </div>
+            </div>
+          );
+        })}
+        <div class="chips" style="padding:8px 0" role="group" aria-label="הוספת פריט">
+          {DEFAULT_ITEM_TYPES.filter((t) => t.id !== 'custom' && !items.some((i) => i.type === t.id)).map((t) => (
+            <button class="chip" onClick={() => setItems([...items, itemFrom(t)])}>+ {t.name}</button>
+          ))}
+          <button class="chip" onClick={() => {
+            const n = prompt('איך קוראים לפריט?');
+            if (n?.trim()) setItems([...items, { ...itemFrom(DEFAULT_ITEM_TYPES.find((t) => t.id === 'custom')!), name: n.trim() }]);
+          }}>+ פריט משלי</button>
         </div>
       </section>
 
@@ -367,6 +401,18 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
       )}
     </main>
   );
+}
+
+const groupOf = (i: Item): 'loaf' | 'rolls' => DEFAULT_ITEM_TYPES.find((t) => t.id === i.type)?.group ?? 'rolls';
+
+/** Recipes saved before items existed only know loaves and rolls. */
+function itemsOf(r: Recipe): Item[] {
+  if (r.items?.length) return r.items;
+  const t = (id: string) => DEFAULT_ITEM_TYPES.find((x) => x.id === id)!;
+  return [
+    ...(r.loaves > 0 ? [{ ...itemFrom(t('loaf'), r.loaves), weight: r.weight }] : []),
+    ...(r.rolls > 0 ? [itemFrom(t('rolls'), r.rolls)] : []),
+  ];
 }
 
 function Stepper({ label, value, set, max = 8 }: { label: string; value: number; set: (n: number) => void; max?: number }) {

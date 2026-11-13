@@ -61,16 +61,19 @@ export function splitOf(total: number, loaves: number, loafWeight: number, rolls
   return { loaves, loafWeight, rolls, rollWeight: rolls > 0 ? rollDough / rolls : 0, rollDough, total };
 }
 
-export const splitText = (sp: Split): string =>
+export const splitText = (sp: Split, rollsName = 'לחמניות'): string =>
   [
     sp.loaves > 0 && `${sp.loaves} כיכרות × ${Math.round(sp.loafWeight)} ג'`,
-    sp.rolls > 0 && `${sp.rolls} לחמניות × ${Math.round(sp.rollWeight)} ג' (${Math.round(sp.rollDough)} ג' בסך הכול)`,
+    sp.rolls > 0 && `${sp.rolls} ${rollsName} × ${Math.round(sp.rollWeight)} ג' (${Math.round(sp.rollDough)} ג' בסך הכול)`,
   ].filter(Boolean).join(' + ');
 
 export const ENRICH_PCT = 0.055;
 export const FOLD_WHY = 'קיפולים מחזקים את הגלוטן בלי לישה ארוכה. ברירת המחדל 4; אפשר להוסיף או להוריד לפי מגע הבצק.';
 
 export interface PlanInput {
+  /** what the non-loaf pieces are called (default לחמניות), and how to bake them */
+  rollsName?: string;
+  rollsBake?: string;
   /** when the loaves come out of the oven, epoch ms */
   outOfOvenAt: number;
   loaves: number;
@@ -254,6 +257,16 @@ export function plan(input: PlanInput, now: number = Date.now()): Plan {
     : { seed: 0, ratio: { a: 0, b: 0 }, addFlour: 0, addWater: 0, hours: 0 };
 
   steps.sort((x, y) => x.at - y.at);
+  const rn = input.rollsName;
+  if (rn && rn !== 'לחמניות') {
+    for (const st of steps) {
+      if (['divide', 'shapeRolls', 'enrich', 'bakeRolls', 'rollsDone'].includes(st.kind)) {
+        st.title = st.title.replaceAll('לחמניות', rn);
+        if (st.note) st.note = st.note.replaceAll('לחמניות', rn);
+      }
+      if (st.kind === 'bakeRolls' && input.rollsBake) { st.title = `לאפות ${rn}`; st.note = input.rollsBake; }
+    }
+  }
   return {
     steps,
     dough: d,

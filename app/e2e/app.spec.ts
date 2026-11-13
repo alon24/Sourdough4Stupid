@@ -45,7 +45,6 @@ test('calculator survives empty input', async ({ page }) => {
 test('wizard needs at least one item', async ({ page }) => {
   await page.goto('/#/new');
   await page.getByRole('button', { name: 'פחות לחם' }).click();
-  await page.getByRole('button', { name: 'פחות לחם' }).click();
   await expect(page.getByRole('button', { name: /צריך לבחור/ })).toBeDisabled();
 });
 
@@ -168,9 +167,9 @@ test('help page renders the guide and anchors scroll', async ({ page }) => {
 
 test('starting from starter: 300 g wanted, 30 g in the fridge', async ({ page }) => {
   await page.goto('/#/new');
-  await page.getByRole('button', { name: 'מכמה סטארטר' }).click();
+  await page.getByLabel('רוצה סטארטר (גרם)').fill('300');
+  await page.getByLabel('יש לי עכשיו (גרם)').fill('30');
   await expect(page.getByTestId('chain')).toContainText('2 האכלות');
-  await page.getByRole('button', { name: '2 לחמים + 8 לחמניות' }).click();
   await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
   await expect(page.getByRole('button', { name: /האכלה 1 מתוך 2/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /האכלה 2 מתוך 2/ })).toBeVisible();
@@ -178,14 +177,13 @@ test('starting from starter: 300 g wanted, 30 g in the fridge', async ({ page })
 
 test('more starter in hand means fewer feedings', async ({ page }) => {
   await page.goto('/#/new');
-  await page.getByRole('button', { name: 'מכמה סטארטר' }).click();
+  await page.getByLabel('רוצה סטארטר (גרם)').fill('300');
   await page.getByLabel('יש לי עכשיו (גרם)').fill('250');
   await expect(page.getByTestId('chain')).toContainText('האכלה אחת');
 });
 
 test('a ready starter skips the feeding steps', async ({ page }) => {
   await page.goto('/#/new');
-  await page.getByRole('button', { name: 'מכמה סטארטר' }).click();
   await page.getByLabel('הסטארטר כבר מוכן ועל השיא').check();
   await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
   await expect(page.getByRole('heading', { name: 'התוכנית שלך' })).toBeVisible();
@@ -270,8 +268,8 @@ test('my own flour mix: grams and percent stay in sync, can be saved, remembered
   await page.getByRole('combobox', { name: 'סוג קמח' }).nth(1).selectOption('whole');
   await page.getByLabel('גרמים').nth(0).fill('700');
   await page.getByLabel('גרמים').nth(1).fill('300');
-  await expect(page.getByLabel('אחוז').nth(1)).toHaveValue('30');
-  await page.getByLabel('אחוז').nth(1).fill('50');
+  await expect(page.getByLabel('אחוז', { exact: true }).nth(1)).toHaveValue('30');
+  await page.getByLabel('אחוז', { exact: true }).nth(1).fill('50');
   await expect(page.getByLabel('גרמים').nth(1)).toHaveValue('500');
   await page.getByLabel('שם לתמהיל').fill('חצי חצי');
   await page.getByRole('button', { name: 'שמור תמהיל' }).click();
@@ -453,11 +451,12 @@ test('apk link is a plain download link, the service worker leaves .apk alone, a
 
 test('reference bake: 32 g stiff, 300 g tomorrow, 2 loaves of 1 kg + rolls, split and enrichment shown', async ({ page }) => {
   await page.goto('/#/new');
-  await page.getByRole('button', { name: 'מכמה סטארטר' }).click();
   await page.getByLabel('רוצה סטארטר (גרם)').fill('300');
   await page.getByLabel('יש לי עכשיו (גרם)').fill('32');
   await page.getByRole('combobox', { name: 'משקל לחם' }).selectOption('1000');
-  for (let i = 0; i < 7; i++) await page.getByRole('button', { name: 'עוד לחמניות' }).click();
+  await page.getByRole('button', { name: 'עוד לחם' }).click();
+  await page.getByRole('button', { name: '+ לחמניות' }).click();
+  for (let i = 0; i < 6; i++) await page.getByRole('button', { name: 'עוד לחמניות' }).click();
   await page.getByText('האכלה אחת ללילה').click();
   await expect(page.getByTestId('chain')).toContainText('האכלה אחת');
   await page.getByRole('button', { name: /הכול יחד/ }).click();
@@ -572,6 +571,8 @@ test('the service worker registers and the app keeps working after a reload unde
 
 test('the split announces itself and each loaf and the rolls are separate branches', async ({ page }) => {
   await page.goto('/#/new');
+  await page.getByRole('button', { name: 'עוד לחם' }).click();
+  await page.getByRole('button', { name: '+ לחמניות' }).click();
   await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
   await expect(page.getByTestId('split')).toContainText('כאן האפייה מתפצלת');
   const tracks = page.getByTestId('track');
@@ -593,7 +594,7 @@ test('the split announces itself and each loaf and the rolls are separate branch
   // weight change offers to derive a recipe only when from a recipe; the rolls adapt
   await page.getByRole('button', { name: 'ניהול כיכר 2' }).click();
   await page.getByRole('button', { name: 'פחות משקל' }).click();
-  await expect(page.getByTestId('split')).toContainText('850');
+  await expect(page.getByTestId('split')).toContainText('950');
 });
 
 test('download page: direct APK button, copyable link, QR to the page', async ({ page }) => {
@@ -652,7 +653,7 @@ test('flour mix percentages: typed value stays, the other flour takes the rest, 
   await page.getByRole('button', { name: 'הרכב קמחים משלי' }).click();
   await page.getByRole('button', { name: '+ הוסף קמח' }).click();
   await page.getByRole('combobox', { name: 'סוג קמח' }).nth(1).selectOption('whole');
-  const pct = (i: number) => page.getByLabel('אחוז').nth(i);
+  const pct = (i: number) => page.getByLabel('אחוז', { exact: true }).nth(i);
   const gr = (i: number) => page.getByLabel('גרמים').nth(i);
   // ilan's exact sequence: grams 800 and 200, then type 48 in a percent field
   await gr(0).fill('800');
@@ -694,4 +695,30 @@ test('flour mix percentages: typed value stays, the other flour takes the rest, 
   await page.getByLabel('קמח כולל').fill('2000');
   await expect(pct(1)).toHaveValue('30');
   await expect(gr(1)).toHaveValue('600');
+});
+
+test('items and starter need: a kilo loaf defaults to 1, 200 g on hand asks if sure, 3 loaves from 100 g is a shortfall, pizza and custom items', async ({ page }) => {
+  await page.goto('/#/new');
+  await expect(page.getByLabel('כמות לחם')).toHaveText('1');
+  await expect(page.getByLabel('משקל לחם')).toHaveValue('1000');
+  await page.getByLabel('יש לי עכשיו (גרם)').fill('200');
+  await expect(page.getByTestId('starter-lots')).toContainText('בטוח בכמות הסטארטר');
+  await expect(page.getByRole('button', { name: /100 ג' · נשארים 100/ })).toBeVisible();
+  await page.getByRole('button', { name: /150 ג' · נשארים 50.*מהירה/ }).click();
+  await expect(page.getByLabel('רוצה סטארטר (גרם)')).toHaveValue('150');
+  await page.getByLabel('יש לי עכשיו (גרם)').fill('100');
+  await page.getByRole('button', { name: 'עוד לחם' }).click();
+  await page.getByRole('button', { name: 'עוד לחם' }).click();
+  await expect(page.getByTestId('starter-warning')).toContainText('חסרים');
+  // a pizza item and a custom item
+  await page.getByRole('button', { name: '+ פיצה' }).click();
+  await expect(page.getByLabel('כמות פיצה')).toHaveText('1');
+  page.once('dialog', (d) => d.accept('בריוש'));
+  await page.getByRole('button', { name: '+ פריט משלי' }).click();
+  await expect(page.getByLabel('כמות בריוש')).toHaveText('1');
+  await page.getByLabel('רוצה סטארטר (גרם)').fill('300');
+  await page.getByRole('button', { name: 'הסר בריוש' }).click();
+  await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
+  await expect(page.getByTestId('split')).toContainText('פיצה');
+  await expect(page.getByRole('button', { name: /לאפות פיצה/ })).toBeVisible();
 });
