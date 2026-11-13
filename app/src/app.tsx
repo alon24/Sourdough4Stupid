@@ -50,7 +50,7 @@ export function App() {
       <Boundary resetKey={hash} quiet><Reminder /></Boundary>
       <UpdateBanner />
       {!TAB_HASHES.has(hash.split('?')[0]!) && !hash.startsWith('#/log') && (
-        <button class="back" aria-label="למסך הקודם" onClick={() => back(hash.startsWith('#/recipe') ? '#/recipes' : hash === '#/starter' ? '#/' : hash.startsWith('#/new') ? '#/' : '#/more')}>→ חזרה</button>
+        <button class="back" aria-label="אחורה" onClick={() => back(hash.startsWith('#/recipe') ? '#/recipes' : hash === '#/starter' ? '#/' : hash.startsWith('#/new') ? '#/' : '#/more')}>→ חזרה</button>
       )}
       <Boundary resetKey={hash}>{screen}</Boundary>
       <nav class="tabs" aria-label="ניווט ראשי">
