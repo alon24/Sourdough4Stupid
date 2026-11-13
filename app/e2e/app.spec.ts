@@ -646,3 +646,52 @@ test('home: bake status before the starter, the starter is asked about and never
   await ask.getByRole('link', { name: 'כן, בוא נגדיר' }).click();
   await expect(page.getByRole('heading', { name: 'מה מצב הסטארטר?' })).toBeVisible();
 });
+
+test('flour mix percentages: typed value stays, the other flour takes the rest, grams follow, save locks until 100%', async ({ page }) => {
+  await page.goto('/#/new');
+  await page.getByRole('button', { name: 'הרכב קמחים משלי' }).click();
+  await page.getByRole('button', { name: '+ הוסף קמח' }).click();
+  await page.getByRole('combobox', { name: 'סוג קמח' }).nth(1).selectOption('whole');
+  const pct = (i: number) => page.getByLabel('אחוז').nth(i);
+  const gr = (i: number) => page.getByLabel('גרמים').nth(i);
+  // ilan's exact sequence: grams 800 and 200, then type 48 in a percent field
+  await gr(0).fill('800');
+  await gr(1).fill('200');
+  await expect(pct(0)).toHaveValue('80');
+  await pct(0).click();
+  await pct(0).fill('');
+  await pct(0).pressSequentially('48');
+  await expect(pct(0)).toHaveValue('48');
+  await expect(gr(0)).toHaveValue('480');
+  await expect(pct(1)).toHaveValue('52');
+  await expect(gr(1)).toHaveValue('520');
+  await expect(page.getByTestId('mix-status')).toContainText('100%');
+  // decimals and clearing
+  await pct(0).fill('33.5');
+  await expect(pct(0)).toHaveValue('33.5');
+  await expect(gr(0)).toHaveValue('335');
+  await pct(0).fill('');
+  await expect(gr(0)).toHaveValue('0');
+  // percent first with three flours: remaining is shown and the plan button is locked until 100%
+  await page.getByRole('button', { name: '+ הוסף קמח' }).click();
+  await pct(0).fill('84');
+  await pct(1).fill('0');
+  await pct(2).fill('0');
+  await expect(page.getByTestId('mix-left')).toHaveText('16');
+  await expect(page.getByRole('button', { name: 'הקמחים צריכים להגיע ל־100%' }).first()).toBeDisabled();
+  await pct(1).fill('16');
+  await expect(page.getByTestId('mix-status')).toContainText('100%');
+  await expect(page.getByRole('button', { name: 'יאללה, תתכנן לי' })).toBeEnabled();
+  // too much
+  await pct(2).fill('10');
+  await expect(page.getByTestId('mix-status')).toContainText('יותר מדי');
+  // remove a flour
+  await page.getByRole('button', { name: 'הסר קמח' }).nth(2).click();
+  await expect(page.getByTestId('mix-row')).toHaveCount(2);
+  // grams edit moves only that flour, base is editable and keeps shares
+  await gr(1).fill('300');
+  await expect(pct(1)).toHaveValue('30');
+  await page.getByLabel('קמח כולל').fill('2000');
+  await expect(pct(1)).toHaveValue('30');
+  await expect(gr(1)).toHaveValue('600');
+});
