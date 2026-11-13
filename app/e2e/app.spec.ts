@@ -722,3 +722,29 @@ test('items and starter need: a kilo loaf defaults to 1, 200 g on hand asks if s
   await expect(page.getByTestId('split')).toContainText('פיצה');
   await expect(page.getByRole('button', { name: /לאפות פיצה/ })).toBeVisible();
 });
+
+test('in a running bake: kneading by hand or machine per round, and same day or overnight at any time', async ({ page }) => {
+  await page.goto('/#/new');
+  await page.getByRole('button', { name: /^מכונה$/ }).click();
+  await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
+  // round 1 by hand, rest by machine
+  await page.getByRole('button', { name: /קיפול 1 מתוך 4/ }).click();
+  await page.getByRole('button', { name: 'ביד', exact: true }).click();
+  await expect(page.getByRole('button', { name: /קיפול 1 מתוך 4 · ביד/ })).toBeVisible();
+  await page.getByRole('button', { name: /קיפול 2 מתוך 4/ }).click();
+  await expect(page.getByRole('button', { name: 'מכונה', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'ביד', exact: true }).click();
+  await expect(page.getByRole('button', { name: /קיפול 2 מתוך 4 · ביד/ })).toBeVisible();
+  await page.getByRole('button', { name: /קיפול 3 מתוך 4/ }).click();
+  await page.getByLabel('גם לכל הקיפולים הבאים').check();
+  await page.getByRole('button', { name: 'ביד', exact: true }).click();
+  await expect(page.getByRole('button', { name: /קיפול 4 מתוך 4 · ביד/ })).toBeVisible();
+  // same day vs overnight
+  const bake = page.getByRole('button', { name: /לאפות: 24\d° מכוסה/ }).first();
+  const before = await bake.getAttribute('aria-label');
+  await page.getByRole('button', { name: 'אפייה באותו יום' }).click();
+  expect(await bake.getAttribute('aria-label')).not.toBe(before);
+  await expect(page.getByRole('button', { name: 'אפייה באותו יום' })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'לילה במקרר' }).click();
+  expect(await bake.getAttribute('aria-label')).toBe(before);
+});

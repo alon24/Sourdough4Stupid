@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import {
-  addCustom, addLoaf, branchSummary, removeBranch, removeStep, setRollCount, setTrackAlarms, setUserNote, setWeight, setWhere, type Branch, type Where,
+  addCustom, addLoaf, setMethod, setWhereAll, branchSummary, removeBranch, removeStep, setRollCount, setTrackAlarms, setUserNote, setWeight, setWhere, type Branch, type Where,
   addFold, removeFold, setAutolyse, bulkState, complete, doughTempAdvice, FRICTION, resumeAt, retimeBulk, roomTempTip, setAlarm, shift, TARGET_DOUGH_C,
   waterTemp, fridgeTip, targetFor, type Reading, type Step,
 } from '../../../core/src/index';
@@ -17,6 +17,7 @@ export function PlanScreen() {
   const [deriveP, setDeriveP] = useState(false);
   const [branchOpen, setBranchOpen] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [fromHere, setFromHere] = useState(false);
   const [tempOpen, setTempOpen] = useState(false);
   const [photoOpen, setPhotoOpen] = useState(false);
   const nextRef = useRef<HTMLElement | null>(null);
@@ -67,6 +68,7 @@ export function PlanScreen() {
     if (pieces && plan.recipeId) setDeriveP(true);
   };
   const sheetB = branches.find((b) => b.id === branchOpen);
+  const allRoom = branches.length > 0 && branches.every((b) => b.where === 'room' || b.where === 'now');
   const finish = () => {
     const notes = [
       ...branches.filter((b) => b.note).map((b) => `${b.label}: ${b.note}`),
@@ -118,6 +120,17 @@ export function PlanScreen() {
 
       {plan.input && !steps.some((s) => s.doneAt !== undefined) && (
         <a class="btn primary" href="#/start">התחלת ביצוע: איפה אני?</a>
+      )}
+
+      {branches.length > 0 && (
+        <section class="card" aria-label="מתי אופים" data-testid="when-card">
+          <strong>מתי אופים?</strong>
+          <div class="seg" role="group" aria-label="מתי אופים">
+            <button class={!allRoom ? 'on' : ''} aria-pressed={!allRoom} onClick={() => applyB(setWhereAll(steps, branches, 'fridge', Date.now(), getState().roomTempC))}>לילה במקרר</button>
+            <button class={allRoom ? 'on' : ''} aria-pressed={allRoom} onClick={() => applyB(setWhereAll(steps, branches, 'room', Date.now(), getState().roomTempC))}>אפייה באותו יום</button>
+          </div>
+          <span class="muted">{allRoom ? 'אחרי העיצוב מתפיחים בחוץ ואופים היום. השעות והשעונים מתעדכנים.' : 'אחרי העיצוב למקרר, ואופים לפי השעה בתוכנית.'}</span>
+        </section>
       )}
 
       {mixStep && mixStep.doneAt === undefined && (
@@ -216,6 +229,24 @@ export function PlanScreen() {
               <textarea rows={2} value={sel.userNote ?? ''} onInput={(e) => setState({ plan: { ...getState().plan!, steps: setUserNote(getState().plan!.steps, sel.id, e.currentTarget.value) } })}></textarea>
             </label>
             {sel.kind === 'custom' && <button class="btn small" onClick={() => update(removeStep(steps, sel.id))}>מחק שלב זה</button>}
+            {(sel.kind === 'fold' || sel.kind === 'mix') && sel.doneAt === undefined && (
+              <>
+                <span class="sub">איך לשים עכשיו?</span>
+                <div class="seg" role="group" aria-label="שיטת לישה">
+                  {(['hand', 'machine'] as const).map((m) => (
+                    <button class={(sel.method ?? plan.kneading) === m ? 'on' : ''} aria-pressed={(sel.method ?? plan.kneading) === m} onClick={() => update(setMethod(steps, sel.id, m, fromHere))}>
+                      {m === 'hand' ? 'ביד' : 'מכונה'}
+                    </button>
+                  ))}
+                </div>
+                {sel.kind === 'fold' && (
+                  <label class="row" style="justify-content:flex-start;min-height:44px">
+                    <input type="checkbox" checked={fromHere} onChange={(e) => setFromHere(e.currentTarget.checked)} style="width:24px;height:24px" />
+                    גם לכל הקיפולים הבאים
+                  </label>
+                )}
+              </>
+            )}
             {sel.kind === 'fold' && sel.doneAt === undefined && (
               <div class="grid2">
                 <button class="btn small" onClick={() => update(addFold(steps, plan.input?.foldGapMin ?? 30))}>הוסף קיפול</button>

@@ -31,6 +31,8 @@ export interface Step {
   track?: string;
   /** the baker's own note on this step */
   userNote?: string;
+  /** kneading round or mix: by hand or machine (can change during the bake) */
+  method?: 'hand' | 'machine';
 }
 
 export const ROLL_BAKE = 'תנור 230° עם תבנית מים רותחים בתחתית. חריץ קטן בראש כל לחמנייה, אפשר להבריש מים ולפזר שומשום, פרג או שיבולת שועל. 12 דק\' עם אדים, להוציא את תבנית המים, להנמיך ל־210° ועוד 8–10 דק\' עד השחמה עמוקה. מהמקרר ישר לתנור.';
@@ -257,6 +259,7 @@ export function plan(input: PlanInput, now: number = Date.now()): Plan {
     : { seed: 0, ratio: { a: 0, b: 0 }, addFlour: 0, addWater: 0, hours: 0 };
 
   steps.sort((x, y) => x.at - y.at);
+  for (const st of steps) if (st.kind === 'fold' || st.kind === 'mix') st.method = kneading;
   const rn = input.rollsName;
   if (rn && rn !== 'לחמניות') {
     for (const st of steps) {
