@@ -133,3 +133,21 @@ textarea { font: inherit; color: inherit; background: transparent; border: 2px s
 .thumb img, .thumb .ph { width: 120px; height: 120px; object-fit: cover; border-radius: 16px; background: var(--ground); display: block; }
 .thumb figcaption { margin-top: 4px; color: var(--muted); }
 .warn { display: flex; flex-direction: column; gap: 6px; border: 2px solid var(--coral); border-radius: 20px; padding: 10px 14px; }
+
+/* flour mix */
+.mixcard { gap: 10px; }
+.mixbase { display: inline-flex; align-items: center; gap: 6px; }
+.mixbase input { width: 84px; }
+.chipx { display: inline-flex; align-items: stretch; min-height: 48px; border: 2px solid var(--ink); border-radius: 24px; overflow: hidden; }
+.chipx-main, .chipx-del { background: transparent; border: 0; cursor: pointer; font: inherit; color: inherit; }
+.chipx-main { padding: 0 14px; }
+.chipx-del { min-width: 44px; padding: 0 10px; border-inline-start: 2px solid var(--ink); }
+.chipx-del.sure { color: var(--coral); font-weight: 700; }
+.mixhead, .mixrow { display: grid; grid-template-columns: minmax(0, 1fr) 72px 84px 44px; gap: 8px; align-items: center; }
+.mixhead { font-size: 13px; color: var(--muted, #6B5B7B); padding-block: 0; }
+.mixhead span:nth-child(2), .mixhead span:nth-child(3) { text-align: center; }
+.mixrow input, .mixrow select { width: 100%; min-width: 0; text-align: center; }
+.mixrow select { text-align: start; }
+.mixtotal { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; border-top: 2px solid var(--ground); padding-top: 8px; }
+.mixsave { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.mixsave input { width: 100%; min-width: 0; }

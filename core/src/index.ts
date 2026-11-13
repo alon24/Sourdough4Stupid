@@ -9,3 +9,4 @@ export * from './exchange.js';
 export * from './branches.js';
 export * from './sync.js';
 export * from './items.js';
+export * from './combine.js';

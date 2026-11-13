@@ -14,7 +14,7 @@ function download(name: string, text: string, type: string) {
 }
 
 export function Recipes() {
-  const { recipes, customFlours, inclusions } = useStore();
+  const { recipes, customFlours, inclusions, history } = useStore();
   const [msg, setMsg] = useState('');
   const pct = Object.fromEntries(inclusions.map((i) => [i.name, i.pct]));
   const onFile = async (e: Event) => {
@@ -61,6 +61,7 @@ export function Recipes() {
             <button class="btn icon quiet" aria-label={r.fav ? `הסר ${r.name} ממועדפים` : `הוסף ${r.name} למועדפים`} onClick={() => patch(r.id, { fav: !r.fav })}>{r.fav ? '★' : '☆'}</button>
           </div>
           <a class="btn primary" href={`#/new/${r.id}`}>אפייה חדשה</a>
+          {history.some((h) => h.recipeId === r.id) && <a class="btn small" href={`#/log?recipe=${r.id}`} data-testid="recipe-bakes">{history.filter((h) => h.recipeId === r.id).length} אפיות מהמתכון הזה ביומן</a>}
           <div class="grid2">
             <a class="btn small" href={`#/recipe/${r.id}`}>עריכה</a>
             <details class="more">

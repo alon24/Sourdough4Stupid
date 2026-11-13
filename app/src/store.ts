@@ -35,6 +35,8 @@ export interface ActivePlan {
   recipeId?: string;
   /** what to cut at the end of the bulk, always shown in the plan */
   split?: string;
+  /** additions that go into one portion only at the split (olive oil for the pizza) */
+  splitNotes?: string[];
   amounts: { name: string; grams: number }[];
   build: string;
   /** previous steps, for undo */
@@ -105,6 +107,21 @@ export const DEFAULT_INCLUSIONS: InclusionDef[] = [
   { id: 'raisins', name: 'צימוקים', pct: 0.18, soak: true },
 ];
 
+export type BakeStatus = 'success' | 'failed' | 'finished' | 'unfinished';
+
+export interface HistoryEntry {
+  title: string;
+  finishedAt: number;
+  /** how the bake went; entries from before this existed count as finished */
+  status?: BakeStatus;
+  notes?: string[];
+  photos?: PlanPhoto[];
+  readings?: Reading[];
+  /** the recipe it came from, and the inclusions added just for this bake */
+  recipeId?: string;
+  inclusions?: string[];
+}
+
 export interface State {
   inclusions: InclusionDef[];
   recipes: Recipe[];
@@ -116,7 +133,7 @@ export interface State {
   /** other bakes running at the same time */
   others: ActivePlan[];
   roomTempC: number;
-  history: { title: string; finishedAt: number; notes?: string[]; photos?: PlanPhoto[]; readings?: Reading[] }[];
+  history: HistoryEntry[];
 }
 
 const KEY = 'machmetzet.v1';

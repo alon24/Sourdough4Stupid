@@ -3,6 +3,7 @@ import { Calc } from './screens/Calc';
 import { Download } from './screens/Download';
 import { Help } from './screens/Help';
 import { Home } from './screens/Home';
+import { Log } from './screens/Log';
 import { PlanScreen } from './screens/Plan';
 import { Recipes } from './screens/Recipes';
 import { StarterStatus } from './screens/StarterStatus';
@@ -15,8 +16,8 @@ import { UpdateBanner } from './UpdateBanner';
 
 const TABS = [
   { hash: '#/', label: 'בית' },
-  { hash: '#/plan', label: 'תוכנית' },
-  { hash: '#/new', label: 'אפייה' },
+  { hash: '#/plan', label: 'אפיות' },
+  { hash: '#/new', label: 'אפייה חדשה' },
   { hash: '#/recipes', label: 'מתכונים' },
   { hash: '#/calc', label: 'מחשבון' },
 ];
@@ -31,7 +32,7 @@ export function App() {
   }, []);
 
   const screen =
-    hash === '#/plan' ? <PlanScreen /> : hash === '#/recipes' ? <Recipes /> : hash === '#/recipe' ? <Wizard key="r" kind="recipe" /> : hash.startsWith('#/recipe/') ? <Wizard key={hash} kind="recipe" recipeId={hash.slice(9)} /> : hash.startsWith('#/new/') ? <Wizard key={hash} recipeId={hash.slice(6)} /> : hash === '#/new' ? <Wizard key="n" /> : hash === '#/start' ? <Start /> : hash === '#/starter' ? <StarterStatus /> : hash === '#/calc' ? <Calc /> : hash === '#/help' ? <Help /> : hash === '#/sync' ? <Sync /> : hash === '#/app' ? <Download /> : <Home />;
+    hash.startsWith('#/log') ? <Log key={hash} /> : hash === '#/plan' ? <PlanScreen /> : hash === '#/recipes' ? <Recipes /> : hash === '#/recipe' ? <Wizard key="r" kind="recipe" /> : hash.startsWith('#/recipe/') ? <Wizard key={hash} kind="recipe" recipeId={hash.slice(9)} /> : hash.startsWith('#/new/') ? <Wizard key={hash} recipeId={hash.slice(6)} /> : hash === '#/new' ? <Wizard key="n" /> : hash === '#/start' ? <Start /> : hash === '#/starter' ? <StarterStatus /> : hash === '#/calc' ? <Calc /> : hash === '#/help' ? <Help /> : hash === '#/sync' ? <Sync /> : hash === '#/app' ? <Download /> : <Home />;
 
   return (
     <>

@@ -33,7 +33,7 @@ export function PlanScreen() {
   if (!plan) {
     return (
       <main>
-        <h1>אין תוכנית פעילה</h1>
+        <h1>אין אפייה פעילה</h1>
         <p class="muted">מתחילים אפייה חדשה, והשלבים יופיעו כאן עם שעות.</p>
         <a class="btn primary" href="#/new" style="display:flex;align-items:center;justify-content:center;text-decoration:none">אפייה חדשה</a>
       </main>
@@ -75,7 +75,7 @@ export function PlanScreen() {
       ...steps.filter((s) => s.userNote).map((s) => `${s.title}: ${s.userNote}`),
       ...steps.filter((s) => s.kind === 'custom').map((s) => `${s.title}${s.note ? `: ${s.note}` : ''}`),
     ];
-    setState({ plan: null, history: [{ title: plan.title, finishedAt: Date.now(), ...(notes.length ? { notes } : {}), ...(plan.photos?.length ? { photos: plan.photos } : {}), ...(plan.readings?.length ? { readings: plan.readings } : {}) }, ...history] });
+    setState({ plan: null, history: [{ title: plan.title, finishedAt: Date.now(), status: next ? 'unfinished' : 'finished', ...(plan.recipeId ? { recipeId: plan.recipeId } : {}), ...(plan.input?.inclusions?.length ? { inclusions: plan.input.inclusions.map((i) => i.name) } : {}), ...(notes.length ? { notes } : {}), ...(plan.photos?.length ? { photos: plan.photos } : {}), ...(plan.readings?.length ? { readings: plan.readings } : {}) }, ...history] });
   };
   const deriveFromPieces = () => {
     const st = getState();
@@ -194,6 +194,7 @@ export function PlanScreen() {
                   <span class="sub">✂️ כאן האפייה מתפצלת · {hhmm(s.at)}</span>
                   <strong class="big">{branchSummary(branches)}</strong>
                   <span class="muted">מכאן כל כיכר והלחמניות הן מסלול משלו: הערות, מקרר או אפייה עכשיו, משקל והתראות.</span>
+                  {plan.splitNotes?.map((n) => <span class="tag" data-testid="split-note">{n}</span>)}
                 </section>
               )}
               {s.kind === 'divide' && branches.map((br) => {
@@ -220,7 +221,7 @@ export function PlanScreen() {
 
       <div class="grid2">
         <button class="btn small" onClick={askNotify}>הפעל התראות</button>
-        <button class="btn small" onClick={finish}>{next ? 'בטל תוכנית' : 'סיימתי, לשמור ביומן'}</button>
+        <button class="btn small" onClick={finish}>{next ? 'בטל אפייה' : 'סיימתי, לשמור ביומן'}</button>
       </div>
 
       {sel && (

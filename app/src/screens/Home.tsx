@@ -33,13 +33,14 @@ export function Home() {
 
       {running.length > 0 ? (
         <section style="display:flex;flex-direction:column;gap:10px" aria-label="אפיות רצות" data-testid="running-list">
+          {running.length > 1 && <strong>אפיות רצות ({running.length})</strong>}
           {running.map((plan) => {
             const next = plan.steps.find((s) => s.doneAt === undefined)!;
             const done = plan.steps.filter((x) => x.doneAt !== undefined).length;
             return (
               <a class="card sun running" href="#/plan" onClick={() => selectPlan(planId(plan))} style="text-decoration:none;color:inherit" aria-label={`אפייה רצה: ${plan.title}`} data-testid="running">
                 <div class="row">
-                  <span class="sub">▶ {running.length > 1 ? 'אפייה' : 'תוכנית'} רצה עכשיו · {plan.title}</span>
+                  <span class="sub">▶ אפייה רצה עכשיו · {plan.title}</span>
                   <span class="tag">{until(next.at)}</span>
                 </div>
                 <span class="muted">השלב הבא</span>
@@ -54,7 +55,7 @@ export function Home() {
         </section>
       ) : (
         <section class="card" data-testid="idle">
-          <span class="big">אין תוכנית רצה</span>
+          <span class="big">אין אפייה רצה</span>
           <span class="muted">כשתתחיל אפייה, כאן תראה מה השלב הבא ומתי.</span>
         </section>
       )}
@@ -100,8 +101,8 @@ export function Home() {
       )}
 
       {history.length > 0 && (
-        <section class="card" aria-label="מה אפיתי לאחרונה" data-testid="recent">
-          <strong>מה אפיתי לאחרונה</strong>
+        <section class="card" aria-label="יומן אפיות" data-testid="recent">
+          <strong>יומן אפיות: האחרונות</strong>
           {history.slice(0, 3).map((h) => (
             <div class="row" data-testid="recent-item">
               <span>{h.title}</span>
@@ -112,6 +113,7 @@ export function Home() {
               </span>
             </div>
           ))}
+          <a class="btn small" href="#/log">כל היומן</a>
         </section>
       )}
 
