@@ -6,7 +6,7 @@ import {
 } from '../../../core/src/index';
 import { dayName, grams, hhmm, toLocalInput, until } from '../format';
 import { STATUS_LABEL } from './Log';
-import { type BakeStatus, getState, planId, selectPlan, setState, useStore, type PlanPhoto } from '../store';
+import { type BakeStatus, closePlan, getState, planId, selectPlan, setState, useStore, type PlanPhoto } from '../store';
 import { savePhoto, shrink, usePhotoUrl } from '../photos';
 
 export function PlanScreen() {
@@ -71,20 +71,13 @@ export function PlanScreen() {
   const sheetB = branches.find((b) => b.id === branchOpen);
   const allRoom = branches.length > 0 && branches.every((b) => b.where === 'room' || b.where === 'now');
   /** closing sheet: finishing asks how it went and for a note, cancelling asks whether to log it */
-  const [closing, setClosing] = useState<'finish' | 'cancel' | null>(null);
+  const [closing, setClosing] = useState<'finish' | 'cancel' | 'goto' | null>(null);
   const [howItWent, setHowItWent] = useState<BakeStatus>('success');
   const [endNote, setEndNote] = useState('');
   const finish = (status: BakeStatus | null) => {
-    const notes = [
-      ...(endNote.trim() ? [endNote.trim()] : []),
-      ...branches.filter((b) => b.note).map((b) => `${b.label}: ${b.note}`),
-      ...steps.filter((s) => s.userNote).map((s) => `${s.title}: ${s.userNote}`),
-      ...steps.filter((s) => s.kind === 'custom').map((s) => `${s.title}${s.note ? `: ${s.note}` : ''}`),
-    ];
     setClosing(null);
+    closePlan(planId(plan), status, endNote);
     setEndNote('');
-    if (status === null) { setState({ plan: null }); return; }
-    setState({ plan: null, history: [{ title: plan.title, finishedAt: Date.now(), status, ...(plan.recipeId ? { recipeId: plan.recipeId } : {}), ...(plan.input?.inclusions?.length ? { inclusions: plan.input.inclusions.map((i) => i.name) } : {}), ...(notes.length ? { notes } : {}), ...(plan.photos?.length ? { photos: plan.photos } : {}), ...(plan.readings?.length ? { readings: plan.readings } : {}) }, ...history] });
   };
   const deriveFromPieces = () => {
     const st = getState();
@@ -103,12 +96,18 @@ export function PlanScreen() {
         <span class="sub">{plan.title}</span>
         <h1>התוכנית שלך</h1>
       </div>
+      <div class="quick top" role="group" aria-label="פעולות מהירות">
+        {next && <button class="btn small danger" onClick={() => setClosing('cancel')}>בטל אפייה</button>}
+        {next && <button class="btn small" onClick={() => setClosing('goto')}>עבור לשלב</button>}
+        {next && <button class="btn small primary" aria-label="סמן כבוצע" onClick={() => update(complete(steps, next.id, Date.now()))}>✓ בוצע</button>}
+        {!next && <button class="btn small primary" onClick={() => setClosing('finish')}>סיימתי, לשמור ביומן</button>}
+      </div>
       {others.length > 0 && (
-        <nav class="chips" aria-label="אפיות רצות" data-testid="bake-switch">
+        <nav class="chips center" aria-label="אפיות רצות" data-testid="bake-switch">
           {[plan, ...others].map((p) => (
             <button class={`chip ${p === plan ? 'on' : ''}`} aria-pressed={p === plan} onClick={() => selectPlan(planId(p))}>{p.title}</button>
           ))}
-          <a class="chip" href="#/new">+ אפייה נוספת</a>
+          <a class="chip add" href="#/new">+ אפייה נוספת</a>
         </nav>
       )}
 
@@ -228,20 +227,25 @@ export function PlanScreen() {
       </div>
       <button class="btn small" onClick={() => setAdding(true)}>+ שלב או הערה חופשיים</button>
 
-      <div class="grid2">
-        <button class="btn small" onClick={askNotify}>הפעל התראות</button>
-        {next ? (
-          <button class="btn small danger" onClick={() => setClosing('cancel')}>בטל אפייה</button>
-        ) : (
-          <button class="btn small" onClick={() => setClosing('finish')}>סיימתי, לשמור ביומן</button>
-        )}
-      </div>
+      <button class="btn small" onClick={askNotify}>הפעל התראות</button>
 
       {closing && (
         <>
           <button class="scrim" aria-label="סגור" onClick={() => setClosing(null)}></button>
-          <div class="sheet" role="dialog" aria-label={closing === 'finish' ? 'סיום אפייה' : 'ביטול אפייה'}>
-            {closing === 'finish' ? (
+          <div class="sheet" role="dialog" aria-label={closing === 'finish' ? 'סיום אפייה' : closing === 'goto' ? 'מעבר לשלב' : 'ביטול אפייה'}>
+            {closing === 'goto' ? (
+              <>
+                <strong class="big">באיזה שלב אתה?</strong>
+                <div class="goto-list">
+                  {steps.filter((x) => x.doneAt === undefined).map((x) => (
+                    <button class="chip" onClick={() => { setClosing(null); update(resumeAt(steps, x.id, Date.now())); }}>
+                      {x.title} <span class="muted num">{hhmm(x.at)}</span>
+                    </button>
+                  ))}
+                </div>
+                <button class="btn small" onClick={() => setClosing(null)}>סגור</button>
+              </>
+            ) : closing === 'finish' ? (
               <>
                 <strong class="big">איך עברה האפייה?</strong>
                 <div class="chips" role="group" aria-label="איך עברה">

@@ -10,7 +10,11 @@ async function goStep(page: import('@playwright/test').Page, n: number) {
     const text = await ind.textContent({ timeout: 1000 }).catch(() => null);
     if (text === null) return;
     const cur = Number(/שלב (\d)/.exec(text)?.[1]);
-    if (cur === n) return;
+    if (cur === n) {
+      if (n === 3) await page.getByRole('button', { name: 'ערוך קמחים' }).click({ timeout: 300 }).catch(() => undefined);
+      if (n === 4) await page.locator('details.adv:not([open]) > summary').click({ timeout: 300 }).catch(() => undefined);
+      return;
+    }
     await page.getByRole('button', { name: cur < n ? /^הבא/ : 'הקודם' }).first().click({ timeout: 3000 }).catch(() => undefined);
   }
 }
@@ -208,7 +212,7 @@ test('starting from starter: 300 g wanted, 30 g in the fridge', async ({ page })
   await page.getByLabel('יש לי עכשיו (גרם)').fill('30');
   await expect(page.getByTestId('chain')).toContainText('2 האכלות');
   await goStep(page, 4);
-  await page.getByRole('button', { name: /צריך להגדיל את הסטארטר/ }).click();
+  await page.getByRole('button', { name: /תכנן לי האכלות/ }).click();
   await goStep(page, 4);
   await page.getByRole('button', { name: 'אישור, ממשיכים לתוכנית' }).click();
   await expect(page.getByRole('button', { name: /האכלה 1 מתוך 2/ })).toBeVisible();
@@ -495,6 +499,7 @@ test('a named flour mix goes straight into the flour dropdown, is selected, and 
   await expect(dd.locator('option', { hasText: 'הרכב הבית' })).toHaveCount(1);
   await expect(dd.locator('option:checked')).toHaveText('הרכב הבית');
   await page.reload();
+  await goStep(page, 3);
   await expect(dd.locator('option', { hasText: 'הרכב הבית' })).toHaveCount(1);
   await goStep(page, 3);
   await dd.selectOption({ label: 'לבן' });
@@ -538,9 +543,9 @@ test('reference bake: 32 g stiff, 300 g tomorrow, 2 loaves of 1 kg + rolls, spli
   await page.getByRole('button', { name: /הכול יחד/ }).click();
   await page.getByRole('combobox', { name: 'העשרת הלחמניות' }).selectOption('oil');
   await goStep(page, 4);
-  const feed = page.getByRole('button', { name: /צריך להגדיל את הסטארטר/ });
+  const feed = page.getByRole('button', { name: /תכנן לי האכלות/ });
   if (await feed.count()) { await feed.click(); await page.getByRole('button', { name: 'אישור, ממשיכים לתוכנית' }).click(); } else await startBake(page);
-  await expect(page.getByTestId('split')).toContainText('2 כיכרות × 1000');
+  await expect(page.getByTestId('split')).toContainText('שתי כיכרות × 1000');
   await expect(page.getByTestId('split')).toContainText('7 לחמניות');
   await page.getByRole('button', { name: /להאכיל סטארטר/ }).click();
   await expect(page.getByRole('dialog')).toContainText('32 ג\' סטארטר');
@@ -825,7 +830,7 @@ test('items and starter need: a kilo loaf defaults to 1, 200 g on hand asks if s
   await goStep(page, 1);
   await page.getByRole('button', { name: 'הסר בריוש' }).click();
   await goStep(page, 4);
-  const feed = page.getByRole('button', { name: /צריך להגדיל את הסטארטר/ });
+  const feed = page.getByRole('button', { name: /תכנן לי האכלות/ });
   if (await feed.count()) { await feed.click(); await page.getByRole('button', { name: 'אישור, ממשיכים לתוכנית' }).click(); } else await startBake(page);
   await expect(page.getByTestId('split')).toContainText('פיצה');
   await expect(page.getByRole('button', { name: /לאפות פיצה/ })).toBeVisible();
@@ -885,11 +890,11 @@ test('starter explanations: the need is spelled out, the shortfall says what to 
   await page.getByLabel('כמה סטארטר לשים בבצק (גרם)').fill('200');
   const w = page.getByTestId('starter-warning');
   await expect(w).toContainText('חסרים 170');
-  await expect(w).toContainText('המומלץ ללחם שבחרת הוא רק כ־90');
+  await expect(w).toContainText('רק ב־90');
   await w.getByRole('button', { name: /השתמש רק ב־90/ }).click();
   await goStep(page, 4);
   await expect(page.getByTestId('starter-warning')).toContainText('חסרים 60');
-  await page.getByRole('button', { name: 'תכנן לי את ההאכלות' }).click();
+  await page.getByRole('button', { name: 'תכנן לי האכלות' }).click();
   await goStep(page, 4);
   await page.getByRole('button', { name: 'אישור, ממשיכים לתוכנית' }).click();
   await expect(page.getByRole('heading', { name: 'התוכנית שלך' })).toBeVisible();
@@ -998,7 +1003,7 @@ test('recipe editing never depends on the starter I have: no stock fields or war
   await goStep(page, 4);
   await page.getByLabel('יש לי עכשיו (גרם)').fill('100');
   await goStep(page, 4);
-  await expect(page.getByTestId('starter-warning')).toContainText('אין לך מספיק סטארטר לתוכנית הזאת');
+  await expect(page.getByTestId('starter-warning')).toContainText('חסרים');
 });
 
 test('starter status accepts typed values: hydration, grams, time in the fridge in weeks', async ({ page }) => {
@@ -1076,7 +1081,8 @@ test('two bakes at once: both on home, switch between them, alarms carry the bak
   expect(new Set(sets.map((o) => o.id.split(':')[0])).size).toBe(2);
   expect(sets.every((o) => o.title!.includes(' · '))).toBe(true);
   // open the second one and cancel it: the first stays
-  await page.getByTestId('running').nth(1).click();
+  await page.getByTestId('running').nth(1).getByRole('link').click();
+  await expect(page.getByRole('heading', { name: 'התוכנית שלך' })).toBeVisible();
   await page.getByRole('button', { name: 'בטל אפייה' }).click();
   await page.getByRole('button', { name: 'בטל ושמור ביומן' }).click();
   await page.goto('/#/');
@@ -1098,9 +1104,9 @@ test('scaling and combining: a base batch times N, other recipes join the dough,
   await page.reload();
   await page.goto('/#/new/a');
   const scale = page.getByTestId('scale');
-  await expect(scale).toContainText('1 כיכרות + 6 לחמניות');
+  await expect(scale).toContainText('כיכר אחת + 6 לחמניות');
   await page.getByRole('button', { name: 'עוד הכפלת המתכון' }).click();
-  await expect(page.getByTestId('scaled')).toContainText('2 כיכרות + 12 לחמניות');
+  await expect(page.getByTestId('scaled')).toContainText('שתי כיכרות + 12 לחמניות');
   const dough2 = await page.getByTestId('scaled-total').innerText();
   // the base batch is untouched
   await goStep(page, 1);
@@ -1207,8 +1213,13 @@ test('not enough starter blocks the start: choose to feed first or confirm you a
   await page.goto('/#/new');
   await goStep(page, 4);
   await page.getByLabel('יש לי עכשיו (גרם)').fill('30');
-  const go = page.getByRole('button', { name: /אין מספיק סטארטר: בחר/ });
-  await expect(go).toBeDisabled();
+  // the main button follows the situation: it leads to the feeding plan, it is not blocked
+  const go = page.getByRole('button', { name: 'להמשיך לתכנון ההאכלות' });
+  await expect(go).toBeEnabled();
+  await go.click();
+  await expect(page.getByTestId('feed-plan')).toBeVisible();
+  await expect(page).toHaveURL(/#\/new/);
+  await page.getByRole('button', { name: 'חזרה' }).click();
   await goStep(page, 4);
   await expect(page.getByTestId('starter-warning')).toContainText('חסרים');
   // the ready checkbox uses the same confirmation, it does not skip the check
@@ -1216,7 +1227,7 @@ test('not enough starter blocks the start: choose to feed first or confirm you a
   await page.getByLabel('הסטארטר כבר מוכן ועל השיא').click();
   await goStep(page, 4);
   await expect(page.getByTestId('enough-confirm')).toBeVisible();
-  await expect(go).toBeDisabled();
+  await expect(page.getByTestId('starter-warning')).toBeVisible(); // still short until a real amount is typed
   await goStep(page, 4);
   await page.getByLabel('כמה סטארטר מוכן יש לך').fill('50');
   await goStep(page, 4);
@@ -1240,7 +1251,7 @@ test('not enough starter: feeding first shows the feeding plan and waits for a g
   await goStep(page, 4);
   await page.getByLabel('יש לי עכשיו (גרם)').fill('30');
   await goStep(page, 4);
-  await page.getByRole('button', { name: /צריך להגדיל את הסטארטר/ }).click();
+  await page.getByRole('button', { name: /תכנן לי האכלות/ }).click();
   await expect(page).toHaveURL(/#\/new/);
   const fp = page.getByTestId('feed-plan');
   await expect(fp).toBeVisible();
@@ -1258,7 +1269,7 @@ test('not enough starter: feeding first shows the feeding plan and waits for a g
   await goStep(page, 4);
   await expect(page.getByTestId('feed-plan')).toHaveCount(0);
   await goStep(page, 4);
-  await page.getByRole('button', { name: /צריך להגדיל את הסטארטר/ }).click();
+  await page.getByRole('button', { name: /תכנן לי האכלות/ }).click();
   await goStep(page, 4);
   await page.getByRole('button', { name: 'אישור, ממשיכים לתוכנית' }).click();
   await expect(page.getByRole('heading', { name: 'התוכנית שלך' })).toBeVisible();
@@ -1320,6 +1331,10 @@ test('flows 2: a new bake is four steps (what, when, adjustments, summary with t
   await expect(page.getByLabel('יוצא מהתנור')).toBeVisible();
   await page.getByRole('button', { name: /^הבא/ }).click();
   await expect(ind).toContainText('שלב 3');
+  // the flour is one short line, the editor is behind "ערוך"
+  await expect(page.getByTestId('flour-summary')).toContainText('לבן');
+  await expect(page.getByRole('combobox', { name: 'קמח' })).toBeHidden();
+  await page.getByRole('button', { name: 'ערוך קמחים' }).click();
   await expect(page.getByRole('combobox', { name: 'קמח' })).toBeVisible();
   await page.getByRole('button', { name: /^הבא/ }).click();
   await expect(ind).toContainText('שלב 4');
@@ -1388,4 +1403,64 @@ test('flows 3: finishing a bake saves how it went and a closing note to the log'
   expect(st.history[0].status).toBe('failed');
   expect(st.history[0].notes).toContain('הבצק היה רטוב מדי');
   expect(st.plan).toBeNull();
+});
+
+test('flows 4: quick actions on the home cards and at the top of the plan, centered bake tabs, and proper Hebrew counts', async ({ page }) => {
+  await page.goto('/#/new');
+  await startBake(page);
+  await page.goto('/#/new');
+  await startBake(page);
+  // titles use "לחם אחד", never "1 לחמים"
+  await expect(page.locator('h1 + *, .sub').first()).not.toContainText('1 לחמים');
+  await page.goto('/#/');
+  const cards = page.getByTestId('running');
+  await expect(cards).toHaveCount(2);
+  await expect(cards.first()).toContainText('לחם אחד');
+  await expect(cards.first()).not.toContainText('1 לחמים');
+  // done: the next step of the first bake is marked done without opening the plan
+  const before = await page.evaluate(() => JSON.parse(localStorage.getItem('machmetzet.v1')!).plan.steps.filter((x: { doneAt?: number }) => x.doneAt !== undefined).length);
+  await cards.first().getByRole('button', { name: /סמן כבוצע/ }).click();
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('machmetzet.v1')!).plan.steps.filter((x: { doneAt?: number }) => x.doneAt !== undefined).length)).toBeGreaterThan(before);
+  // go to a step
+  await cards.first().getByRole('button', { name: /עבור לשלב/ }).click();
+  await page.locator('.goto-list .chip').nth(3).click();
+  await expect(page.locator('.sheet')).toHaveCount(0);
+  // cancel the second bake from home: logged, the first stays
+  await cards.nth(1).getByRole('button', { name: /^בטל/ }).click();
+  await page.getByRole('button', { name: 'בטל ושמור ביומן' }).click();
+  await expect(cards).toHaveCount(1);
+  const st = await page.evaluate(() => JSON.parse(localStorage.getItem('machmetzet.v1')!));
+  expect(st.history).toHaveLength(1);
+  expect(st.history[0].status).toBe('unfinished');
+  // the plan has its actions at the top, before the bake tabs and the summary
+  await page.goto('/#/new');
+  await startBake(page);
+  const top = page.getByRole('group', { name: 'פעולות מהירות' });
+  await expect(top.getByRole('button', { name: 'בטל אפייה' })).toBeVisible();
+  const topBox = await top.boundingBox();
+  const tabBox = await page.getByTestId('bake-switch').boundingBox();
+  expect(topBox!.y).toBeLessThan(tabBox!.y);
+  // the tabs row, including "+ אפייה נוספת", is centered and every chip has the same height
+  const hs = await page.getByTestId('bake-switch').locator('.chip').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
+  expect(new Set(hs).size).toBe(1);
+  const row = await page.getByTestId('bake-switch').boundingBox();
+  const kids = await page.getByTestId('bake-switch').locator('.chip').evaluateAll((els) => els.map((e) => e.getBoundingClientRect()));
+  const left = Math.min(...kids.map((k) => k.left)) - row!.x;
+  const right = row!.x + row!.width - Math.max(...kids.map((k) => k.right));
+  expect(Math.abs(left - right)).toBeLessThan(3);
+});
+
+test('hebrew counts: one, two and many for bread and rolls', async ({ page }) => {
+  await page.goto('/#/recipes');
+  const t = await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('machmetzet.v1') ?? '{}');
+    s.plan = null;
+    s.history = [{ title: '1 לחמים, 2 לחמים · 1 לחמניות', finishedAt: Date.now(), status: 'finished' }];
+    localStorage.setItem('machmetzet.v1', JSON.stringify(s));
+    return true;
+  });
+  expect(t).toBe(true);
+  await page.reload();
+  await page.goto('/#/log');
+  await expect(page.getByTestId('log-entry').first()).toContainText('לחם אחד, שני לחמים · לחמנייה אחת');
 });

@@ -1,8 +1,9 @@
 import { useState } from 'preact/hooks';
 import {
-  buildChain, combineCheck, DEFAULT_ITEM_TYPES, mergeItems, scaleItems, type Part, hydrationAdvice, itemFrom, plan, starterCheck, starterNeed, suggestHydration, type Item,
+  buildChain, combineCheck, loafHe, rollsHe, DEFAULT_ITEM_TYPES, mergeItems, scaleItems, type Part, hydrationAdvice, itemFrom, plan, starterCheck, starterNeed, suggestHydration, type Item,
   type BlendShare, type LoafShape, type PlanInput,
 } from '../../../core/src/index';
+import { allFlours } from '../../../core/src/index';
 import { toActive } from '../activePlan';
 import { FlourMix, mixToBlend, type MixItem } from './FlourMix';
 import { dayName, hhmm, loavesText, shortDate, toLocalInput } from '../format';
@@ -75,6 +76,9 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
   const [presetId, setPresetId] = useState<string | null>(null);
   const preset = flourPresets.find((p) => p.id === presetId);
   const blend = mix ? mixToBlend(mix) : BLENDS[blendIdx]!.blend;
+  /** a bake shows its flour as one short line; the editor opens on "ערוך" (a recipe always shows the editor) */
+  const [editFlour, setEditFlour] = useState(false);
+  const flourLine = blend.map((b) => `${allFlours().find((f) => f.id === b.id)?.name ?? b.id} ${Math.round(b.pct * 100)}%`).join(' + ');
   const advice = hydrationAdvice(blend, hydration);
   // follow the suggestion only while the hydration is still the comfortable one for the old blend
   const follow = (next: BlendShare[]) => {
@@ -182,7 +186,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
       ...(enrich !== 'none' && rolls > 0 ? { rollEnrich: enrich } : {}),
       ...(starterMode && !ready ? { overnightFeed: overnight } : {}), ...(starterMode ? { useAllStarter: true } : {}),
     };
-    const parts = [loaves && loavesText(loaves), rolls && `${rolls} ${rollsName}`, ...picked].filter(Boolean);
+    const parts = [loaves && loavesText(loaves), rolls && rollsHe(rolls, rollsName), ...picked].filter(Boolean);
     const base = `${initial?.name ?? parts.join(' · ')}, ${shortDate(at)}`;
     const taken = new Set(allPlans(getState()).map((p) => p.title));
     let title = base;
@@ -230,58 +234,57 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
         </section>
       ) : (
       <section class="card" aria-label="כמה סטארטר" data-testid="starter-section">
-        <strong>הסטארטר שלי</strong>
-        <span class="muted" data-testid="starter-state">
-          {starter.none ? 'אין לך סטארטר עדיין. אפשר לתכנן הגדלה מכמה גרמים. ' : starter.known ? `${starter.inFridge ? 'במקרר' : 'בחוץ'}, הואכל ${daysSinceFed(starter) === 0 ? 'היום' : `לפני ${daysSinceFed(starter)} ימים`}${starter.weak ? ', חלש' : ''}. ` : 'מצב הסטארטר עוד לא הוגדר. '}
-          <a href="#/starter">עדכון מצב הסטארטר</a>
-        </span>
-        {check.need > 0 && (
-          <span class="muted" data-testid="starter-need">
-            ל־<span class="num">{Math.round(doughG)}</span> ג' בצק מומלץ כ־<span class="num">{check.need}</span> ג' סטארטר פעיל (מוכן ועל השיא). זה בערך 100 ג' לכל ק"ג בצק.
+        <div class="row">
+          <strong>הסטארטר</strong>
+          <span class="muted" data-testid="starter-state">
+            {starter.none ? 'אין לך סטארטר עדיין. ' : starter.known ? `${starter.inFridge ? 'במקרר' : 'בחוץ'}, הואכל ${daysSinceFed(starter) === 0 ? 'היום' : `לפני ${daysSinceFed(starter)} ימים`}${starter.weak ? ', חלש' : ''}. ` : 'מצב הסטארטר עוד לא הוגדר. '}
+            <a href="#/starter">עדכון</a>
           </span>
-        )}
+        </div>
         {reservedFor.length > 0 && (
           <span class="muted" data-testid="starter-reserved">
-            כבר משוריינים {reserved} ג' סטארטר לאפיות רצות: {reservedFor.map((p) => p.title).join(', ')}. הכמות שבשדה "יש לי עכשיו" כבר בלי זה.
+            כבר משוריינים {reserved} ג' סטארטר לאפיות רצות: {reservedFor.map((p) => p.title).join(', ')}. הכמות שבשדה כבר בלי זה.
           </span>
         )}
-        <div class="grid2">
-          <label class="field">
-            יש לי עכשיו (גרם)
-            <input type="number" inputMode="numeric" min="1" value={have} onInput={(e) => { const v = +e.currentTarget.value; setHave(v); if (v > 0) setState({ starter: { ...starter, grams: v } }); }} />
+        <div class="need-line">
+          <span data-testid="starter-need">ל־<span class="num">{Math.round(doughG)}</span> ג' בצק צריך <strong class="num">{want}</strong> ג' סטארטר מוכן</span>
+          <label class="mini">
+            יש לי
+            <input type="number" inputMode="numeric" min="1" aria-label="יש לי עכשיו (גרם)" value={have} onInput={(e) => { const v = +e.currentTarget.value; setHave(v); if (v > 0) setState({ starter: { ...starter, grams: v } }); }} />
+            ג'
           </label>
+        </div>
+        <details class="adv">
+          <summary>שינוי הכמות והאפשרויות</summary>
           <label class="field">
             כמה סטארטר לשים בבצק (גרם)
             <input type="number" inputMode="numeric" min="1" value={want} onInput={(e) => setUseOverride(+e.currentTarget.value || null)} />
           </label>
-        </div>
-        <label class="row" style="justify-content:flex-start;min-height:48px">
-          <input type="checkbox" checked={ready} onChange={(e) => { const on = e.currentTarget.checked; if (on && short) { setConfirmEnough(true); setEnoughN(String(want)); } else setReady(on); }} style="width:24px;height:24px" />
-          הסטארטר כבר מוכן ועל השיא
-        </label>
-        {!ready && (
-          <label class="row" style="justify-content:flex-start;min-height:48px">
-            <input type="checkbox" checked={overnight} onChange={(e) => setOvernight(e.currentTarget.checked)} style="width:24px;height:24px" />
-            האכלה אחת ללילה (1:6:3, כ־10–12 שעות בחדר)
+          <label class="row" style="justify-content:flex-start;min-height:44px">
+            <input type="checkbox" checked={ready} onChange={(e) => { const on = e.currentTarget.checked; if (on && short) { setConfirmEnough(true); setEnoughN(String(want)); } else setReady(on); }} style="width:24px;height:24px" />
+            הסטארטר כבר מוכן ועל השיא
           </label>
-        )}
+          {!ready && (
+            <label class="row" style="justify-content:flex-start;min-height:44px">
+              <input type="checkbox" checked={overnight} onChange={(e) => setOvernight(e.currentTarget.checked)} style="width:24px;height:24px" />
+              האכלה אחת ללילה (1:6:3, כ־10–12 שעות)
+            </label>
+          )}
+        </details>
         {short && (
           <div role="alert" data-testid="starter-warning" class="warn">
-            <strong>אין לך מספיק סטארטר לתוכנית הזאת: חסרים <span class="num">{Math.round(want - have)}</span> ג'. בוא קודם נייצר.</strong>
-            <span>
-              לבצק תשים <span class="num">{want}</span> ג' סטארטר מוכן, ויש לך עכשיו <span class="num">{have}</span>. מאכילים אותו (קמח ומים) עד שיהיה מספיק, ואני אתכנן לך את ההאכלות ואת השעות.
-              {want > check.need * 1.3 ? <> שים לב: המומלץ ללחם שבחרת הוא רק כ־<span class="num">{check.need}</span> ג'. אם תכתוב {check.need} במקום {want}, יחסר פחות.</> : null}
-            </span>
-            <div style="display:flex;flex-direction:column;gap:8px">
-              <button class="btn small primary" onClick={() => { setFeedPlan(true); setConfirmEnough(false); }} disabled={nothing} aria-expanded={feedPlan}>צריך להגדיל את הסטארטר: תכנן לי את ההאכלות</button>
-              <button class="btn small" onClick={() => { setConfirmEnough(true); setEnoughN(String(want)); }}>יש לי מספיק סטארטר מוכן</button>
+            <strong>חסרים <span class="num">{Math.round(want - have)}</span> ג' סטארטר</strong>
+            <div class="grid2">
+              <button class="btn small primary" onClick={() => { setFeedPlan(true); setConfirmEnough(false); }} disabled={nothing} aria-expanded={feedPlan}>תכנן לי האכלות</button>
+              <button class="btn small" onClick={() => { setConfirmEnough(true); setEnoughN(String(want)); }}>יש לי מספיק מוכן</button>
             </div>
-            {want > check.need ? <button class="btn small" onClick={() => setUseOverride(check.need)}>או להשתמש רק ב־{check.need} ג' (פחות סטארטר)</button> : null}
+            {want > check.need * 1.3 ? <button class="btn small" onClick={() => setUseOverride(check.need)}>או להשתמש רק ב־{check.need} ג' (מספיק ל־{Math.round(doughG)} ג' בצק)</button> : null}
             {confirmEnough && (
               <div data-testid="enough-confirm" class="row" style="flex-wrap:wrap;gap:8px;justify-content:flex-start">
-                <label class="field" style="flex-direction:row;align-items:center;gap:6px">
-                  כמה גרם סטארטר מוכן ועל השיא יש לך באמת?
-                  <input type="number" inputMode="numeric" min="1" aria-label="כמה סטארטר מוכן יש לך" style="width:84px" value={enoughN} onInput={(e) => setEnoughN(e.currentTarget.value)} />
+                <label class="mini">
+                  כמה מוכן ועל השיא יש לך?
+                  <input type="number" inputMode="numeric" min="1" aria-label="כמה סטארטר מוכן יש לך" value={enoughN} onInput={(e) => setEnoughN(e.currentTarget.value)} />
+                  ג'
                 </label>
                 {(parseFloat(enoughN) || 0) < want * 0.9 && <span class="muted" role="status" data-testid="enough-low">זה עדיין פחות מ־{want} ג'. צריך להגדיל את הסטארטר או לבחור כמות קטנה יותר.</span>}
                 <button class="btn small primary" disabled={(parseFloat(enoughN) || 0) < want * 0.9} onClick={() => { const v = Math.round(parseFloat(enoughN)); setHave(v); setReady(true); setConfirmEnough(false); setState({ starter: { ...starter, grams: v } }); }}>
@@ -311,7 +314,10 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
                 </span>
               </div>
             ))}
-            <span class="muted">אפשר לשנות למעלה את כמות הסטארטר שצריך או האכלה אחת ללילה, והתכנון יתעדכן. כשזה נראה לך נכון, ממשיכים לתוכנית.</span>
+            <label class="row" style="justify-content:flex-start;min-height:44px">
+              <input type="checkbox" checked={overnight} onChange={(e) => setOvernight(e.currentTarget.checked)} style="width:24px;height:24px" />
+              הכול בהאכלה אחת, ללילה
+            </label>
             <div style="display:flex;flex-direction:column;gap:8px">
               <button class="btn primary small" onClick={go}>אישור, ממשיכים לתוכנית</button>
               <button class="btn small" onClick={() => setFeedPlan(false)}>חזרה</button>
@@ -342,57 +348,59 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
 </div>
 
 <div class="stepbox" hidden={!on(1)}>
-      <section class="card" style="padding-block:6px" aria-label="מה אופים" data-testid="items">
-        <strong style="padding-top:8px">מה אופים</strong>
+      <section class="card" aria-label="מה אופים" data-testid="items">
+        <strong>מה אופים</strong>
         {baseItems.map((it, k) => {
           const isLoaf = groupOf(it) === 'loaf';
           const nm = it.type === 'loaf' ? 'לחם' : it.type === 'rolls' ? 'לחמניות' : (it.name ?? 'פריט');
           const upd = (patch: Partial<Item>) => setItems(baseItems.map((x, j) => (j === k ? { ...x, ...patch } : x)));
           return (
-            <div class="row line" data-testid="item-row">
-              <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start">
-                <strong style="font-size:20px">{it.type === 'rolls' ? 'לחמניות קראסט' : nm}</strong>
-                <div class="row" style="gap:6px;flex-wrap:wrap">
-                  {isLoaf ? (
-                    <>
-                      <select class="tag" aria-label={it.type === 'loaf' ? 'משקל לחם' : `משקל ${nm}`} value={it.weight} onChange={(e) => upd({ weight: +e.currentTarget.value })}>
+            <div class="item" data-testid="item-row">
+              <div class="item-head">
+                <strong>{it.type === 'rolls' ? 'לחמניות קראסט' : nm}</strong>
+                <div class="item-count">
+                  <Stepper label={nm} value={it.count} set={(n) => upd({ count: n })} max={24} />
+                  {baseItems.length > 1 && <button class="x" aria-label={`הסר ${nm}`} onClick={() => setItems(baseItems.filter((_, j) => j !== k))}>×</button>}
+                </div>
+              </div>
+              <div class="minis">
+                {isLoaf ? (
+                  <>
+                    <label class="mini">
+                      <select aria-label={it.type === 'loaf' ? 'משקל לחם' : `משקל ${nm}`} value={it.weight} onChange={(e) => upd({ weight: +e.currentTarget.value })}>
                         {[...new Set([...WEIGHTS, it.weight])].sort((a, b) => a - b).map((w) => (
                           <option value={w}>{w >= 1000 ? `${w / 1000} ק"ג` : `${w} ג'`} כל אחד</option>
                         ))}
                       </select>
-                      <select class="tag" aria-label="צורת לחם" value={shape} onChange={(e) => setShape(e.currentTarget.value as LoafShape)}>
+                    </label>
+                    <label class="mini">
+                      <select aria-label="צורת לחם" value={shape} onChange={(e) => setShape(e.currentTarget.value as LoafShape)}>
                         <option value="free">בסיר</option>
                         <option value="tin">בתבנית</option>
                       </select>
-                    </>
-                  ) : (
-                    <label class="tag" style="display:inline-flex;gap:4px;align-items:center">
-                      <input type="number" inputMode="numeric" min="10" style="width:64px" aria-label={`משקל ${nm}`} value={it.weight} onInput={(e) => upd({ weight: Math.max(10, +e.currentTarget.value || 10) })} />
-                      ג' כל אחת
                     </label>
-                  )}
-                  <label class="tag" style="display:inline-flex;gap:4px;align-items:center;flex-wrap:wrap">
-                    כמה סטארטר בבצק
-                    <input type="number" inputMode="numeric" min="1" max="40" style="width:52px" aria-label={`אחוז סטארטר ${nm}`} value={Math.round(it.starterPct * 100)} onInput={(e) => upd({ starterPct: Math.min(0.4, Math.max(0.01, (+e.currentTarget.value || 1) / 100)) })} />%
-                    <span class="num" data-testid="item-starter-g">= {Math.round(it.count * it.weight * it.starterPct)} ג'</span>
+                  </>
+                ) : (
+                  <label class="mini">
+                    <input type="number" inputMode="numeric" min="10" aria-label={`משקל ${nm}`} value={it.weight} onInput={(e) => upd({ weight: Math.max(10, +e.currentTarget.value || 10) })} />
+                    ג' כל אחת
                   </label>
-                </div>
-              </div>
-              <div style="display:flex;flex-direction:column;gap:6px;align-items:center">
-                <Stepper label={nm} value={it.count} set={(n) => upd({ count: n })} max={24} />
-                {baseItems.length > 1 && <button class="btn small" aria-label={`הסר ${nm}`} onClick={() => setItems(baseItems.filter((_, j) => j !== k))}>הסר</button>}
+                )}
+                <label class="mini">
+                  סטארטר
+                  <input type="number" inputMode="numeric" min="1" max="40" aria-label={`אחוז סטארטר ${nm}`} value={Math.round(it.starterPct * 100)} onInput={(e) => upd({ starterPct: Math.min(0.4, Math.max(0.01, (+e.currentTarget.value || 1) / 100)) })} />%
+                  <span class="num" data-testid="item-starter-g">= {Math.round(it.count * it.weight * it.starterPct)} ג'</span>
+                </label>
               </div>
             </div>
           );
         })}
-        <span class="muted" data-testid="percent-hint" style="padding-bottom:4px">
-          "כמה סטארטר בבצק" הוא חלק ממשקל הבצק. למשל 10% מ־900 ג' בצק = 90 ג' סטארטר. יותר סטארטר: התפחה מהירה וטעם פחות חמוץ. פחות: איטי וחמוץ יותר.
-        </span>
-        <div class="chips" style="padding:8px 0" role="group" aria-label="הוספת פריט">
+        <span class="muted" data-testid="percent-hint">סטארטר הוא חלק ממשקל הבצק, למשל 10% מ־900 ג' בצק = 90 ג' סטארטר. יותר סטארטר: התפחה מהירה וחמוץ פחות.</span>
+        <div class="pills" role="group" aria-label="הוספת פריט">
           {DEFAULT_ITEM_TYPES.filter((t) => t.id !== 'custom' && !baseItems.some((i) => i.type === t.id)).map((t) => (
-            <button class="chip" onClick={() => setItems([...baseItems, itemFrom(t)])}>+ {t.name}</button>
+            <button class="pill" onClick={() => setItems([...baseItems, itemFrom(t)])}>+ {t.name}</button>
           ))}
-          <button class="chip" onClick={() => {
+          <button class="pill" onClick={() => {
             const n = prompt('איך קוראים לפריט?');
             if (n?.trim()) setItems([...baseItems, { ...itemFrom(DEFAULT_ITEM_TYPES.find((t) => t.id === 'custom')!), name: n.trim() }]);
           }}>+ פריט משלי</button>
@@ -401,10 +409,8 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
 
       {!isRecipe && (
         <section class="card" aria-label="כמה מהמתכון" data-testid="scale">
-          <strong>כמה מהמתכון?</strong>
-          <span class="muted">המתכון נשמר פעם אחת, לאצווה אחת: {describe(baseItems)}. כאן בוחרים כמה פעמים לעשות אותו, וכל הכמויות מוכפלות.</span>
           <div class="row">
-            <span>פעמים</span>
+            <div style="display:flex;flex-direction:column"><strong>כמה פעמים את המתכון?</strong><span class="muted">אצווה אחת: {describe(baseItems)}</span></div>
             <Stepper label="הכפלת המתכון" value={mult} set={(n) => setMult(Math.max(1, n))} max={10} />
           </div>
           <span data-testid="scaled">{mult > 1 ? `×${mult}: ` : ''}{describe(scaleItems(baseItems, mult))}</span>
@@ -464,6 +470,14 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
         <InclusionsEditor />
       </div>
 
+      {!isRecipe && !editFlour && (
+        <div class="card row" aria-label="קמח" data-testid="flour-summary">
+          <div style="display:flex;flex-direction:column;min-width:0"><strong>קמח</strong><span class="muted">{preset ? preset.name : flourLine}</span></div>
+          <button class="pill" aria-label="ערוך קמחים" onClick={() => setEditFlour(true)}>ערוך</button>
+        </div>
+      )}
+      {(isRecipe || editFlour) && (
+        <>
       <label class="field">
         קמח
         <select value={presetId && preset ? `p${presetId}` : mix ? 'custom' : String(blendIdx)} onChange={(e) => pickFromDropdown(e.currentTarget.value)}>
@@ -485,6 +499,8 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
         <FlourMix key={mixEpoch} items={mix} onChange={changeMix} onSaved={setPresetId} onValidity={setMixOk} />
       ) : (
         <button class="btn small" onClick={startMix}>הרכב קמחים משלי</button>
+      )}
+        </>
       )}
       <section class="card" aria-label="הידרציה">
         <div class="row">
@@ -541,7 +557,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
             {[20, 30, 45, 60].map((m) => <option value={m}>{m} דק'</option>)}
           </select>
         </label>
-        <span class="muted">4 היא ברירת המחדל: כל קיפול מחזק את הגלוטן בלי לישה ארוכה. בצק רטוב או קמח מלא: אפשר להוסיף. אפשר גם להוסיף ולהסיר בתוך התוכנית.</span>
+        <span class="muted">4 הוא ברירת המחדל. בצק רטוב או קמח מלא: אפשר להוסיף. אפשר לשנות גם בתוך התוכנית.</span>
       </section>
 </div>
 <div class="stepbox" hidden={!on(2)}>
@@ -567,8 +583,8 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
           <button class="btn primary" style="font-size:19px" disabled={step === 1 && nothing} onClick={() => { setStep(step + 1); scrollTo(0, 0); }}>הבא: {STEPS[step]}</button>
         </div>
       ) : (
-        <button class="btn primary" style="margin-top:auto;font-size:19px" disabled={nothing || short || (!!mix && !mixOk)} onClick={go}>
-          {nothing ? 'צריך לבחור לפחות לחם אחד' : short ? 'אין מספיק סטארטר: בחר באחת האפשרויות למעלה' : mix && !mixOk ? 'הקמחים צריכים להגיע ל־100%' : 'יאללה, תתכנן לי'}
+        <button class="btn primary" style="margin-top:auto;font-size:19px" disabled={nothing || (!!mix && !mixOk)} onClick={short ? () => { setFeedPlan(true); setConfirmEnough(false); setTimeout(() => document.querySelector('[data-testid="feed-plan"]')?.scrollIntoView({ block: 'center' }), 50); } : go}>
+          {nothing ? 'צריך לבחור לפחות לחם אחד' : mix && !mixOk ? 'הקמחים צריכים להגיע ל־100%' : short ? 'להמשיך לתכנון ההאכלות' : 'יאללה, תתכנן לי'}
         </button>
       )}
       {!isRecipe && step === 4 && <button class="btn small" onClick={() => { setStep(3); scrollTo(0, 0); }}>הקודם</button>}
@@ -578,7 +594,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
 
 /** "2 כיכרות + 12 לחמניות" */
 const describe = (items: Item[]): string =>
-  items.map((i) => `${i.count} ${i.name && i.type !== 'rolls' && i.type !== 'loaf' && i.type !== 'pizza' && i.type !== 'bagel' && i.type !== 'pan' ? i.name : (DEFAULT_ITEM_TYPES.find((t) => t.id === i.type)?.plural ?? i.name ?? '')}`).join(' + ');
+  items.map((i) => i.type === 'loaf' ? loafHe(i.count) : i.type === 'rolls' ? rollsHe(i.count) : `${i.count} ${i.name && i.type !== 'rolls' && i.type !== 'loaf' && i.type !== 'pizza' && i.type !== 'bagel' && i.type !== 'pan' ? i.name : (DEFAULT_ITEM_TYPES.find((t) => t.id === i.type)?.plural ?? i.name ?? '')}`).join(' + ');
 
 const groupOf = (i: Item): 'loaf' | 'rolls' => DEFAULT_ITEM_TYPES.find((t) => t.id === i.type)?.group ?? 'rolls';
 

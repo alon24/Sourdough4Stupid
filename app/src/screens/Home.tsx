@@ -1,6 +1,8 @@
 import { Capacitor } from '@capacitor/core';
 import { dayName, hhmm, until } from '../format';
-import { type ActivePlan, allPlans, daysSinceFed, planId, selectPlan, setState, useStore } from '../store';
+import { complete, resumeAt, shift } from '../../../core/src/index';
+import { useState } from 'preact/hooks';
+import { type ActivePlan, allPlans, closePlan, daysSinceFed, planId, selectPlan, setState, updatePlan, useStore } from '../store';
 
 const isApk = Capacitor.isNativePlatform();
 const CHECKED = 'machmetzet.alarms-checked';
@@ -21,6 +23,10 @@ export function Home() {
       : days > 14
         ? 'במקרר. האכלת חיזוק אחת לפני האפייה.'
         : 'במקרר. האכלה אחת והוא חוזר לעניינים.';
+  /** the quick action that is open: a step picker or the cancel choices for one bake */
+  const [quick, setQuick] = useState<{ id: string; kind: 'goto' | 'cancel' } | null>(null);
+  const quickPlan = quick ? allPlans(st).find((p) => planId(p) === quick.id) : undefined;
+  const act = (p: ActivePlan, fn: (steps: ActivePlan['steps']) => ActivePlan['steps']) => updatePlan(planId(p), (x) => ({ ...x, steps: fn(x.steps), undo: x.steps }));
   const markFed = (p: object) => setState({ starter: { ...starter, known: true, none: false, ...p } });
 
   return (
@@ -48,7 +54,8 @@ export function Home() {
             const done = plan.steps.filter((x) => x.doneAt !== undefined).length;
             const waiting = next.at - Date.now() > 12 * 3_600_000;
             return (
-              <a class={`card ${waiting ? 'pending' : 'sun'} running`} href="#/plan" onClick={() => selectPlan(planId(plan))} style="text-decoration:none;color:inherit" aria-label={`אפייה רצה: ${plan.title}`} data-testid="running">
+              <div class={`card ${waiting ? 'pending' : 'sun'} running`} data-testid="running">
+              <a href="#/plan" onClick={() => selectPlan(planId(plan))} style="text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:6px" aria-label={`אפייה רצה: ${plan.title}`}>
                 <div class="row">
                   <span class="sub">{waiting ? '⏳ ממתינה לשלב הראשון' : '▶ רצה עכשיו'} · {plan.title}</span>
                   <span class="tag">{until(next.at)}</span>
@@ -60,6 +67,13 @@ export function Home() {
                 </div>
                 <span class="muted">{dayName(next.at)} · שלב {done + 1} מתוך {plan.steps.length}. לחיצה פותחת את כל התוכנית.</span>
               </a>
+              <div class="quick" role="group" aria-label={`פעולות מהירות: ${plan.title}`}>
+                <button class="btn small primary" aria-label={`סמן כבוצע (${plan.title})`} onClick={() => act(plan, (steps) => complete(steps, next.id, Date.now()))}>✓ בוצע</button>
+                <button class="btn small" aria-label={`דחה ב־30 דקות (${plan.title})`} onClick={() => act(plan, (steps) => shift(steps, next.id, Math.max(30, Math.ceil((Date.now() - next.at) / 60_000) + 30)))}>+30 דק'</button>
+                <button class="btn small" aria-label={`עבור לשלב (${plan.title})`} onClick={() => setQuick({ id: planId(plan), kind: 'goto' })}>⏭ לשלב</button>
+                <button class="btn small danger" aria-label={`בטל אפייה (${plan.title})`} onClick={() => setQuick({ id: planId(plan), kind: 'cancel' })}>בטל</button>
+              </div>
+            </div>
             );
           })}
         </section>
@@ -126,6 +140,34 @@ export function Home() {
         </section>
       )}
 
+      {quick && quickPlan && (
+        <>
+          <button class="scrim" aria-label="סגור" onClick={() => setQuick(null)}></button>
+          <div class="sheet" role="dialog" aria-label={quick.kind === 'goto' ? 'מעבר לשלב' : 'ביטול אפייה'}>
+            {quick.kind === 'goto' ? (
+              <>
+                <strong class="big">באיזה שלב אתה? · {quickPlan.title}</strong>
+                <div class="goto-list">
+                  {quickPlan.steps.filter((x) => x.doneAt === undefined).map((x) => (
+                    <button class="chip" onClick={() => { act(quickPlan, (steps) => resumeAt(steps, x.id, Date.now())); setQuick(null); }}>
+                      {x.title} <span class="muted num">{hhmm(x.at)}</span>
+                    </button>
+                  ))}
+                </div>
+                <button class="btn small" onClick={() => setQuick(null)}>סגור</button>
+              </>
+            ) : (
+              <>
+                <strong class="big">לבטל את "{quickPlan.title}"?</strong>
+                <span class="muted">השעונים של האפייה הזאת יימחקו. אפשר לשמור אותה ביומן כ"לא הושלמה".</span>
+                <button class="btn primary" onClick={() => { closePlan(quick.id, 'unfinished'); setQuick(null); }}>בטל ושמור ביומן</button>
+                <button class="btn danger" onClick={() => { closePlan(quick.id, null); setQuick(null); }}>בטל בלי לשמור</button>
+                <button class="btn small" onClick={() => setQuick(null)}>חזרה</button>
+              </>
+            )}
+          </div>
+        </>
+      )}
     </main>
   );
 }

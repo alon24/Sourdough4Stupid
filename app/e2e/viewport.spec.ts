@@ -14,6 +14,7 @@ for (const size of SIZES) {
       // open the editors that hide wide rows
       if (route === '#/new' || route === '#/recipe') {
         if (route === '#/new') for (let i = 0; i < 2; i++) await page.getByRole('button', { name: /^הבא/ }).click();
+        if (route === '#/new') await page.getByRole('button', { name: 'ערוך קמחים' }).click();
         await page.getByRole('button', { name: 'הרכב קמחים משלי' }).click();
         await page.getByText('ניהול תוספות').click();
         await page.getByText('קמח משלי').click();

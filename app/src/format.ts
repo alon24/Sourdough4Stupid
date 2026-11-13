@@ -1,3 +1,4 @@
+export { breadHe as loavesText, rollsHe as rollsText } from '../../core/src/index';
 const DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 
 export const hhmm = (t: number): string => {
@@ -36,9 +37,6 @@ export const toLocalInput = (t: number): string => {
   const d = new Date(t - new Date(t).getTimezoneOffset() * 60_000);
   return d.toISOString().slice(0, 16);
 };
-
-/** "כיכר" / "N כיכרות" */
-export const loavesText = (n: number): string => (n === 1 ? 'כיכר אחת' : `${n} כיכרות`);
 
 /** 16.11 */
 export const shortDate = (t: number): string => `${new Date(t).getDate()}.${new Date(t).getMonth() + 1}`;

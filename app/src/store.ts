@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { alarmOps, type PlanInput, registerFlours, type FlourInfo, type AlarmOp, type Reading, type Step, type Branch, type Item, type StarterType } from '../../core/src/index';
+import { alarmOps, fixTitleHe, type PlanInput, registerFlours, type FlourInfo, type AlarmOp, type Reading, type Step, type Branch, type Item, type StarterType } from '../../core/src/index';
 
 /** Provided by the Android wrapper (real alarm clock). Absent in the browser. */
 declare global {
@@ -154,7 +154,12 @@ const initial = (): State => ({
 function load(): State {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) return { ...initial(), ...(JSON.parse(raw) as Partial<State>) };
+    if (raw) {
+      const st = { ...initial(), ...(JSON.parse(raw) as Partial<State>) };
+      // bakes saved with "1 לחמים" in their name: say it properly
+      const fix = <T extends { title: string }>(x: T): T => ({ ...x, title: fixTitleHe(x.title) });
+      return { ...st, plan: st.plan ? fix(st.plan) : st.plan, others: st.others.map(fix), history: st.history.map(fix) };
+    }
   } catch {
     /* storage unavailable or corrupt: start fresh */
   }
@@ -189,6 +194,22 @@ export function selectPlan(id: string): void {
   const all = allPlans(state);
   const p = all.find((x) => planId(x) === id);
   if (p) setState({ plan: p, others: all.filter((x) => x !== p) });
+}
+
+/** close one running bake, wherever it is: log it with a status and an optional closing note, or drop it (status null) */
+export function closePlan(id: string, status: BakeStatus | null, endNote = ''): void {
+  const p = allPlans(state).find((x) => planId(x) === id);
+  if (!p) return;
+  const notes = [
+    ...(endNote.trim() ? [endNote.trim()] : []),
+    ...(p.branches ?? []).filter((b) => b.note).map((b) => `${b.label}: ${b.note}`),
+    ...p.steps.filter((s) => s.userNote).map((s) => `${s.title}: ${s.userNote}`),
+    ...p.steps.filter((s) => s.kind === 'custom').map((s) => `${s.title}${s.note ? `: ${s.note}` : ''}`),
+  ];
+  const entry: HistoryEntry | null = status === null ? null : { title: p.title, finishedAt: Date.now(), status, ...(p.recipeId ? { recipeId: p.recipeId } : {}), ...(p.input?.inclusions?.length ? { inclusions: p.input.inclusions.map((i) => i.name) } : {}), ...(notes.length ? { notes } : {}), ...(p.photos?.length ? { photos: p.photos } : {}), ...(p.readings?.length ? { readings: p.readings } : {}) };
+  const history = entry ? [entry, ...state.history] : state.history;
+  if (state.plan && planId(state.plan) === id) setState({ plan: null, history });
+  else setState({ others: state.others.filter((x) => planId(x) !== id), history });
 }
 
 /** start another bake without closing the one that is running */
