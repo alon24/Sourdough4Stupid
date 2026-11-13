@@ -36,11 +36,10 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
   /** the recipe's base batch, as saved */
   const [baseItems, setItems] = useState<Item[]>(initial ? itemsOf(initial) : [itemFrom(DEFAULT_ITEM_TYPES[0]!)]);
   /** how many of the base batch to make now, and other recipes to bake from the same dough */
-  const [mult, setMult] = useState(1);
   const [extras, setExtras] = useState<{ recipeId: string; mult: number }[]>([]);
   const extraRecipes = extras.map((e) => ({ e, r: recipes.find((x) => x.id === e.recipeId) })).filter((x): x is { e: { recipeId: string; mult: number }; r: Recipe } => !!x.r);
   const parts: Part[] = [
-    { label: name.trim() || initial?.name || 'המתכון הזה', items: scaleItems(baseItems, mult), hydration },
+    { label: name.trim() || initial?.name || 'המתכון הזה', items: baseItems, hydration },
     ...extraRecipes.map(({ e, r }) => ({ label: r.name, items: scaleItems(itemsOf(r), e.mult), hydration: r.hydration })),
   ];
   const combo = combineCheck(parts);
@@ -408,12 +407,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
       </section>
 
       {!isRecipe && (
-        <section class="card" aria-label="כמה מהמתכון" data-testid="scale">
-          <div class="row">
-            <div style="display:flex;flex-direction:column"><strong>כמה פעמים את המתכון?</strong><span class="muted">אצווה אחת: {describe(baseItems)}</span></div>
-            <Stepper label="הכפלת המתכון" value={mult} set={(n) => setMult(Math.max(1, n))} max={10} />
-          </div>
-          <span data-testid="scaled">{mult > 1 ? `×${mult}: ` : ''}{describe(scaleItems(baseItems, mult))}</span>
+        <section class="card" aria-label="שילוב מתכונים וסך הכול" data-testid="scale">
           {recipes.filter((r) => r.id !== initial?.id && !extras.some((e) => e.recipeId === r.id)).length > 0 && (
             <label class="field">
               לשלב עוד מתכון באותה אפייה
