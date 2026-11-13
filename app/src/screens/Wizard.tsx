@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import {
-  buildChain, DEFAULT_ITEM_TYPES, hydrationAdvice, itemFrom, plan, starterCheck, suggestHydration, type Item,
+  buildChain, DEFAULT_ITEM_TYPES, hydrationAdvice, itemFrom, plan, starterCheck, starterNeed, suggestHydration, type Item,
   type BlendShare, type LoafShape, type PlanInput,
 } from '../../../core/src/index';
 import { toActive } from '../activePlan';
@@ -91,6 +91,8 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
   const [have, setHave] = useState(starter.grams ?? 100);
   const check = starterCheck(items, have);
   const want = useOverride ?? (check.need || 100);
+  const doughG = starterNeed(items).dough;
+  const short = check.need > 0 && have < want * 0.9;
   const [ready, setReady] = useState(false);
   const pieceItems = items;
   const nothing = loaves + rolls === 0;
@@ -180,13 +182,18 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
 
       <section class="card" aria-label="כמה סטארטר" data-testid="starter-section">
         <strong>הסטארטר שלי</strong>
+        {check.need > 0 && (
+          <span class="muted" data-testid="starter-need">
+            ל־<span class="num">{Math.round(doughG)}</span> ג' בצק מומלץ כ־<span class="num">{check.need}</span> ג' סטארטר פעיל (מוכן ועל השיא). זה בערך 100 ג' לכל ק"ג בצק.
+          </span>
+        )}
         <div class="grid2">
           <label class="field">
             יש לי עכשיו (גרם)
             <input type="number" inputMode="numeric" min="1" value={have} onInput={(e) => setHave(+e.currentTarget.value)} />
           </label>
           <label class="field">
-            רוצה סטארטר (גרם)
+            כמה סטארטר לשים בבצק (גרם)
             <input type="number" inputMode="numeric" min="1" value={want} onInput={(e) => setUseOverride(+e.currentTarget.value || null)} />
           </label>
         </div>
@@ -200,13 +207,20 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
             האכלה אחת ללילה (1:6:3, כ־10–12 שעות בחדר)
           </label>
         )}
-        {check.status === 'short' && (
+        {short && (
           <div role="alert" data-testid="starter-warning" class="warn">
-            <strong>אין מספיק סטארטר: חסרים <span class="num">{check.shortBy}</span> ג'.</strong>
-            <span>למה שבחרת צריך בדרך כלל כ־<span class="num">{check.need}</span> ג' (כ־100 ג' לכל ק"ג בצק), ויש <span class="num">{have}</span>. אפשר לבנות את הסטארטר בהאכלות (נתכנן אותן), או לבחור פחות.</span>
+            <strong>צריך להאכיל את הסטארטר לפני: חסרים <span class="num">{Math.round(want - have)}</span> ג'.</strong>
+            <span>
+              לבצק תשים <span class="num">{want}</span> ג' סטארטר מוכן, ויש לך עכשיו <span class="num">{have}</span>. מאכילים אותו (קמח ומים) עד שיהיה מספיק, ואני אתכנן לך את ההאכלות ואת השעות.
+              {want > check.need * 1.3 ? <> שים לב: המומלץ ללחם שבחרת הוא רק כ־<span class="num">{check.need}</span> ג'. אם תכתוב {check.need} במקום {want}, יחסר פחות.</> : null}
+            </span>
+            <div class="grid2">
+              <button class="btn small" onClick={go} disabled={nothing}>תכנן לי את ההאכלות</button>
+              {want > check.need ? <button class="btn small" onClick={() => setUseOverride(check.need)}>השתמש רק ב־{check.need} ג'</button> : <span></span>}
+            </div>
           </div>
         )}
-        {check.status === 'lots' && (
+        {!short && check.status === 'lots' && (
           <div role="alert" data-testid="starter-lots" class="warn">
             <strong>בטוח בכמות הסטארטר?</strong>
             <span>המתכון מבקש בדרך כלל כ־<span class="num">{check.need}</span> ג', ויש לך <span class="num">{have}</span>. מה להשתמש?</span>
@@ -219,7 +233,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
             </div>
           </div>
         )}
-        {check.status === 'ok' && <span class="muted" data-testid="starter-ok">הכמות מתאימה: כ־{check.need} ג' ויש {have}.</span>}
+        {!short && check.status === 'ok' && <span class="muted" data-testid="starter-ok">הכמות מתאימה: כ־{check.need} ג' ויש {have}.</span>}
         {chain.length > 0 && (
           <span data-testid="chain" class="muted">
             {chain.length === 1 ? 'האכלה אחת' : `${chain.length} האכלות`}, בסך הכול כ־<span class="num">{Math.round(chainHours)}</span> שעות לפני הערבוב.
@@ -256,9 +270,10 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
                       ג' כל אחת
                     </label>
                   )}
-                  <label class="tag" style="display:inline-flex;gap:4px;align-items:center">
-                    סטארטר
+                  <label class="tag" style="display:inline-flex;gap:4px;align-items:center;flex-wrap:wrap">
+                    כמה סטארטר בבצק
                     <input type="number" inputMode="numeric" min="1" max="40" style="width:52px" aria-label={`אחוז סטארטר ${nm}`} value={Math.round(it.starterPct * 100)} onInput={(e) => upd({ starterPct: Math.min(0.4, Math.max(0.01, (+e.currentTarget.value || 1) / 100)) })} />%
+                    <span class="num" data-testid="item-starter-g">= {Math.round(it.count * it.weight * it.starterPct)} ג'</span>
                   </label>
                 </div>
               </div>
@@ -269,6 +284,9 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
             </div>
           );
         })}
+        <span class="muted" data-testid="percent-hint" style="padding-bottom:4px">
+          "כמה סטארטר בבצק" הוא חלק ממשקל הבצק. למשל 10% מ־900 ג' בצק = 90 ג' סטארטר. יותר סטארטר: התפחה מהירה וטעם פחות חמוץ. פחות: איטי וחמוץ יותר.
+        </span>
         <div class="chips" style="padding:8px 0" role="group" aria-label="הוספת פריט">
           {DEFAULT_ITEM_TYPES.filter((t) => t.id !== 'custom' && !items.some((i) => i.type === t.id)).map((t) => (
             <button class="chip" onClick={() => setItems([...items, itemFrom(t)])}>+ {t.name}</button>
