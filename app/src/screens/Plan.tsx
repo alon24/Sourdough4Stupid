@@ -6,6 +6,7 @@ import {
 } from '../../../core/src/index';
 import { dayName, grams, hhmm, toLocalInput, until } from '../format';
 import { STATUS_LABEL } from './Log';
+import { planSummary } from '../summary';
 import { type BakeStatus, closePlan, getState, planId, selectPlan, setState, useStore, type PlanPhoto } from '../store';
 import { savePhoto, shrink, usePhotoUrl } from '../photos';
 
@@ -95,6 +96,7 @@ export function PlanScreen() {
       <div>
         <span class="sub">{plan.title}</span>
         <h1>התוכנית שלך</h1>
+        <span class="muted" data-testid="plan-summary">{planSummary(plan)}</span>
       </div>
       <div class="quick top" role="group" aria-label="פעולות מהירות">
         {next && <button class="btn small danger" onClick={() => setClosing('cancel')}>בטל אפייה</button>}
