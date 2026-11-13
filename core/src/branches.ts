@@ -19,6 +19,8 @@ export interface Branch {
   baseAt: number;
   /** the shaping step's title as planned */
   baseTitle?: string;
+  /** the plan was made for a same-day bake (no cold proof) */
+  sameDay?: boolean;
 }
 
 const LOAF_KINDS = ['shape', 'preheat', 'bake', 'uncover', 'outOfTin', 'done'];
@@ -40,10 +42,10 @@ export function withTracks(steps: Step[], input: PlanInput, total: number): { st
   const out: Step[] = [];
   const many = input.loaves > 1;
   for (let i = 0; i < input.loaves; i++) {
-    branches.push({ id: `L${i + 1}`, kind: 'loaf', label: loafLabel(i + 1, many), count: 1, weight: sp.loafWeight, where: 'plan', note: '', baseAt: 0 });
+    branches.push({ id: `L${i + 1}`, kind: 'loaf', label: loafLabel(i + 1, many), count: 1, weight: sp.loafWeight, where: input.coldProof === false ? 'room' : 'plan', sameDay: input.coldProof === false, note: '', baseAt: 0 });
   }
   if (input.rolls > 0) {
-    branches.push({ id: 'rolls', kind: 'rolls', label: input.rollsName ?? 'לחמניות', count: input.rolls, weight: sp.rollWeight, where: 'plan', note: '', baseAt: 0 });
+    branches.push({ id: 'rolls', kind: 'rolls', label: input.rollsName ?? 'לחמניות', count: input.rolls, weight: sp.rollWeight, where: input.coldProof === false ? 'room' : 'plan', sameDay: input.coldProof === false, note: '', baseAt: 0 });
   }
   for (const s of steps) {
     if (LOAF_KINDS.includes(s.kind) && !(s.kind === 'preheat' && input.loaves === 0)) {
@@ -73,7 +75,8 @@ export function setWhere(steps: Step[], branches: Branch[], id: string, where: W
   const proof = 90 * MIN * tempFactor(roomTempC);
   const start =
     where === 'now' ? now + 15 * MIN
-    : where === 'room' ? Math.max(now, (shape?.at ?? now) + proof)
+    : where === 'room' ? Math.max(now, (shape?.doneAt ?? shape?.at ?? now) + proof)
+    : where === 'fridge' && b.sameDay ? Math.max(now, (shape?.doneAt ?? shape?.at ?? now) + 12 * 60 * MIN)
     : b.baseAt;
   const delta = cur ? start - cur : 0;
   const next = steps.map((s) => {
@@ -159,4 +162,39 @@ export function branchSummary(branches: Branch[]): string {
     loaves.length > 0 && (same ? `${loaves.length} כיכרות × ${Math.round(loaves[0]!.weight)} ג'` : loaves.map((b) => `${Math.round(b.weight)} ג'`).join(' + ')),
     rolls && `${rolls.count} ${rolls.label} × ${Math.round(rolls.weight)} ג'`,
   ].filter(Boolean).join(' + ');
+}
+
+/** Same-day or overnight for every branch at once. */
+export function setWhereAll(steps: Step[], branches: Branch[], where: Where, now: number, roomTempC = 24) {
+  let cur = { steps, branches };
+  for (const b of branches) cur = setWhere(cur.steps, cur.branches, b.id, where, now, roomTempC);
+  return cur;
+}
+
+const METHOD_LINE = /^שיטה: .*(\n|$)/;
+export const METHOD_NOTE: Record<'fold' | 'mix', Record<'hand' | 'machine', string>> = {
+  fold: {
+    hand: 'ביד: מתיחה וקיפול מכל ארבעת הצדדים, כמה סיבובים בקערה, בידיים רטובות.',
+    machine: "במכונה: 2–3 דק' במהירות נמוכה עד שהבצק מתחזק. לא להתחמם: מדוד טמפרטורה בסוף.",
+  },
+  mix: {
+    hand: "ביד: ללוש 6–8 דק' עד בצק חלק, או שיטת הצביטה והקיפול.",
+    machine: "במכונה: 4 דק' במהירות נמוכה ואז 3–4 דק' בינונית, עד שהבצק נפרד מהדפנות.",
+  },
+};
+
+/**
+ * Hand or machine for one kneading round (or the mix). With `fromHere`, every later round that is
+ * not done changes too. Only the instruction and the tag change; the times stay.
+ */
+export function setMethod(steps: Step[], id: string, method: 'hand' | 'machine', fromHere = false): Step[] {
+  const t = steps.find((s) => s.id === id);
+  if (!t || (t.kind !== 'fold' && t.kind !== 'mix')) throw new RangeError(`not a kneading step ${id}`);
+  return steps.map((s) => {
+    const hit = s.id === id || (fromHere && s.kind === 'fold' && s.doneAt === undefined && s.at > t.at);
+    if (!hit || s.doneAt !== undefined || (s.kind !== 'fold' && s.kind !== 'mix')) return s;
+    const base = s.title.replace(/ · (ביד|מכונה)$/, '');
+    const note = (s.note ?? '').replace(METHOD_LINE, '');
+    return { ...s, method, title: `${base} · ${method === 'machine' ? 'מכונה' : 'ביד'}`, note: `שיטה: ${METHOD_NOTE[s.kind][method]}\n${note}`.trimEnd() };
+  });
 }

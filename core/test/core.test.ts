@@ -789,3 +789,35 @@ describe('items and starter need', () => {
     expect(speedPct(150, 100)).toBe(22);
   });
 });
+
+import { setMethod, setWhereAll } from '../src/index.js';
+describe('switching during the bake', () => {
+  const input = {
+    outOfOvenAt: new Date('2026-11-13T12:00:00').getTime(), loaves: 1, rolls: 0, starter: { type: 'stiff' as const, hydration: 0.5, daysInFridge: 0, haveGrams: 100 },
+    kneading: 'machine' as const, loafWeight: 1000, starterReady: true,
+  };
+  const p = plan(input as never, new Date('2026-11-12T08:00:00').getTime());
+  const t = withTracks(p.steps, input as never, p.dough.totalDough);
+  it('kneading rounds can be hand or machine one at a time or from here on', () => {
+    const folds = t.steps.filter((s) => s.kind === 'fold');
+    expect(folds.every((f) => f.method === 'machine')).toBe(true);
+    const a = setMethod(t.steps, folds[0]!.id, 'hand');
+    expect(a.find((s) => s.id === folds[0]!.id)!.method).toBe('hand');
+    expect(a.find((s) => s.id === folds[0]!.id)!.title).toContain('ביד');
+    expect(a.find((s) => s.id === folds[1]!.id)!.method).toBe('machine');
+    expect(a.map((s) => s.at)).toEqual(t.steps.map((s) => s.at));
+    const b = setMethod(a, folds[1]!.id, 'hand', true);
+    expect(b.filter((s) => s.kind === 'fold').every((f) => f.method === 'hand')).toBe(true);
+    const again = setMethod(b, folds[1]!.id, 'machine');
+    expect((again.find((s) => s.id === folds[1]!.id)!.note!.match(/שיטה:/g) ?? []).length).toBe(1);
+  });
+  it('same day vs overnight moves the bake of every branch', () => {
+    const now = new Date('2026-11-13T09:00:00').getTime();
+    const same = setWhereAll(t.steps, t.branches, 'room', now);
+    const bakeCold = t.steps.find((s) => s.kind === 'bake')!.at;
+    const bakeSame = same.steps.find((s) => s.kind === 'bake')!.at;
+    expect(bakeSame).not.toBe(bakeCold);
+    const back = setWhereAll(same.steps, same.branches, 'plan', now);
+    expect(back.steps.find((s) => s.kind === 'bake')!.at).toBe(bakeCold);
+  });
+});
