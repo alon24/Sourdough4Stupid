@@ -34,7 +34,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
   const [name, setName] = useState(initial?.name ?? '');
   const [hydration, setHydration] = useState(initial?.hydration ?? 0.72);
   /** the recipe's base batch, as saved */
-  const [baseItems, setItems] = useState<Item[]>(initial ? itemsOf(initial) : [itemFrom(DEFAULT_ITEM_TYPES[0]!)]);
+  const [baseItems, setItems] = useState<Item[]>(initial ? itemsOf(initial) : isRecipe ? [] : [itemFrom(DEFAULT_ITEM_TYPES[0]!)]);
   /** how many of the base batch to make now, and other recipes to bake from the same dough */
   const [extras, setExtras] = useState<{ recipeId: string; mult: number }[]>([]);
   const extraRecipes = extras.map((e) => ({ e, r: recipes.find((x) => x.id === e.recipeId) })).filter((x): x is { e: { recipeId: string; mult: number }; r: Recipe } => !!x.r);
@@ -224,13 +224,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
 
 <div class="stepbox" hidden={!on(4)}>
       {isRecipe ? (
-        <section class="card" aria-label="סטארטר במתכון" data-testid="recipe-starter">
-          <strong>כמה סטארטר צריך</strong>
-          <span class="muted">
-            {check.need > 0 ? <>ל־<span class="num">{Math.round(doughG)}</span> ג' בצק צריך כ־<span class="num">{check.need}</span> ג' סטארטר פעיל. </> : null}
-            המתכון קובע כמה סטארטר צריך, בלי קשר לכמה יש לך עכשיו. הבדיקה אם יש מספיק נעשית רק כשמתחילים אפייה.
-          </span>
-        </section>
+        null
       ) : (
       <section class="card" aria-label="כמה סטארטר" data-testid="starter-section">
         <div class="row">
@@ -349,6 +343,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
 <div class="stepbox" hidden={!on(1)}>
       <section class="card" aria-label="מה אופים" data-testid="items">
         <strong>מה אופים</strong>
+        {baseItems.length === 0 && <span class="muted" data-testid="items-empty">מה להכין במתכון הזה? בחרו מהרשימה:</span>}
         {baseItems.map((it, k) => {
           const isLoaf = groupOf(it) === 'loaf';
           const nm = it.type === 'loaf' ? 'לחם' : it.type === 'rolls' ? 'לחמניות' : (it.name ?? 'פריט');
@@ -358,7 +353,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
               <div class="item-head">
                 <strong>{it.type === 'rolls' ? 'לחמניות קראסט' : nm}</strong>
                 <div class="item-count">
-                  <Stepper label={nm} value={it.count} set={(n) => upd({ count: n })} max={24} />
+                  <Stepper label={nm} value={it.count} set={(n) => (n <= 0 && (baseItems.length > 1 || isRecipe) ? setItems(baseItems.filter((_, j) => j !== k)) : upd({ count: n }))} max={24} />
                   {baseItems.length > 1 && <button class="x" aria-label={`הסר ${nm}`} onClick={() => setItems(baseItems.filter((_, j) => j !== k))}>×</button>}
                 </div>
               </div>
@@ -394,7 +389,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
             </div>
           );
         })}
-        <span class="muted" data-testid="percent-hint">סטארטר הוא חלק ממשקל הבצק, למשל 10% מ־900 ג' בצק = 90 ג' סטארטר. יותר סטארטר: התפחה מהירה וחמוץ פחות.</span>
+        {baseItems.length > 0 && <span class="muted" data-testid="percent-hint">סטארטר הוא חלק ממשקל הבצק, למשל 10% מ־900 ג' בצק = 90 ג' סטארטר. יותר סטארטר: התפחה מהירה וחמוץ פחות.</span>}
         <div class="pills" role="group" aria-label="הוספת פריט">
           {DEFAULT_ITEM_TYPES.filter((t) => t.id !== 'custom' && !baseItems.some((i) => i.type === t.id)).map((t) => (
             <button class="pill" onClick={() => setItems([...baseItems, itemFrom(t)])}>+ {t.name}</button>
@@ -405,6 +400,14 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
           }}>+ פריט משלי</button>
         </div>
       </section>
+
+      {isRecipe && !nothing && <section class="card" aria-label="סטארטר במתכון" data-testid="recipe-starter">
+          <strong>כמה סטארטר צריך</strong>
+          <span class="muted">
+            {check.need > 0 ? <>ל־<span class="num">{Math.round(doughG)}</span> ג' בצק צריך כ־<span class="num">{check.need}</span> ג' סטארטר פעיל. </> : null}
+            המתכון קובע כמה סטארטר צריך, בלי קשר לכמה יש לך עכשיו. הבדיקה אם יש מספיק נעשית רק כשמתחילים אפייה.
+          </span>
+      </section>}
 
       {!isRecipe && (
         <section class="card" aria-label="שילוב מתכונים וסך הכול" data-testid="scale">
@@ -569,7 +572,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
       )}
       {isRecipe ? (
         <button class="btn primary" style="margin-top:auto;font-size:19px" disabled={nothing || !name.trim() || (!!mix && !mixOk)} onClick={saveRecipe}>
-          {!name.trim() ? 'צריך שם למתכון' : mix && !mixOk ? 'הקמחים צריכים להגיע ל־100%' : 'שמור מתכון'}
+          {!name.trim() ? 'צריך שם למתכון' : nothing ? 'צריך לבחור מה אופים' : mix && !mixOk ? 'הקמחים צריכים להגיע ל־100%' : 'שמור מתכון'}
         </button>
       ) : step < 4 ? (
         <div class="grid2" style="margin-top:auto">
