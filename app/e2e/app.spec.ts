@@ -1,9 +1,18 @@
 import { expect, test } from '@playwright/test';
 
 
+/** a new bake starts empty now: pick bread unless something is already there */
+async function ensureBread(page: import('@playwright/test').Page) {
+  if (!page.url().includes('#/new')) return;
+  await page.getByTestId('items').waitFor({ timeout: 400 }).catch(() => undefined);
+  if ((await page.getByTestId('item-row').count()) > 0) return;
+  await page.getByRole('button', { name: '+ לחם כפרי', exact: true }).click({ timeout: 500 }).catch(() => undefined);
+}
+
 /** move the new-bake wizard to a step (it does nothing when the wizard is not open) */
 async function goStep(page: import('@playwright/test').Page, n: number) {
   const ind = page.getByTestId('wizard-step');
+  await ensureBread(page);
   for (let i = 0; i < 6; i++) {
     if (i === 0) await ind.waitFor({ timeout: 400 }).catch(() => undefined);
     if ((await ind.count()) === 0) return;
@@ -25,6 +34,7 @@ async function toLastStep(page: import('@playwright/test').Page) {
   for (let i = 0; i < 3 && (await next.count()) > 0; i++) await next.click();
 }
 async function startBake(page: import('@playwright/test').Page) {
+  await ensureBread(page);
   await toLastStep(page);
   await goStep(page, 4);
   await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
@@ -1330,6 +1340,8 @@ test('flows 2: a new bake is four steps (what, when, adjustments, summary with t
   await expect(ind).toContainText('שלב 1 מתוך 4');
   await expect(page.getByTestId('items')).toBeVisible();
   await expect(page.getByTestId('starter-section')).toBeHidden();
+  await expect(page.getByTestId('items-empty')).toBeVisible();
+  await page.getByRole('button', { name: '+ לחם כפרי', exact: true }).click();
   await page.getByRole('button', { name: 'עוד לחם' }).click();
   await page.getByRole('button', { name: /^הבא/ }).click();
   await expect(ind).toContainText('שלב 2');
@@ -1511,4 +1523,17 @@ test('flows 6: a new recipe starts empty, starter comes after the items, zero re
   for (let i = 0; i < 30 && (await page.getByTestId('item-row').count()) > 0; i++) await page.getByRole('button', { name: 'פחות לחמניות' }).click();
   await expect(page.getByTestId('item-row')).toHaveCount(0);
   await expect(page.getByTestId('recipe-starter')).toHaveCount(0);
+});
+
+test('flows 7: a bake from a rolls recipe has no bread row, and a row at zero disappears', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => localStorage.setItem('machmetzet.v1', JSON.stringify({ recipes: [{ id: 'r1', name: 'לחמניות', fav: false, loaves: 0, rolls: 6, weight: 90, shape: 'free', inclusions: [], kneading: 'hand', cold: true, hydration: 0.72, mix: [{ flour: 'white', grams: 1000 }], items: [{ type: 'loaf', count: 0, weight: 1000, starterPct: 0.1, name: 'לחם' }, { type: 'rolls', count: 6, weight: 90, starterPct: 0.12, name: 'לחמניות' }] }] })));
+  await page.goto('/#/new/r1');
+  await page.reload();
+  await expect(page.getByTestId('item-row')).toHaveCount(1);
+  await expect(page.getByTestId('item-row')).not.toContainText('לחם');
+  for (let i = 0; i < 30 && (await page.getByTestId('item-row').count()) > 0; i++) await page.getByRole('button', { name: 'פחות לחמניות' }).click();
+  await expect(page.getByTestId('item-row')).toHaveCount(0);
+  await expect(page.getByTestId('items-empty')).toBeVisible();
+  await expect(page.getByRole('button', { name: '+ לחם כפרי', exact: true })).toBeVisible();
 });

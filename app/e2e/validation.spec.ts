@@ -1,8 +1,17 @@
 import { expect, test } from '@playwright/test';
 
+/** a new bake starts empty now: pick bread unless something is already there */
+async function ensureBread(page: import('@playwright/test').Page) {
+  if (!page.url().includes('#/new')) return;
+  await page.getByTestId('items').waitFor({ timeout: 400 }).catch(() => undefined);
+  if ((await page.getByTestId('item-row').count()) > 0) return;
+  await page.getByRole('button', { name: '+ לחם כפרי', exact: true }).click({ timeout: 500 }).catch(() => undefined);
+}
+
 /** move the new-bake wizard to a step (it does nothing when the wizard is not open) */
 async function goStep(page: import('@playwright/test').Page, n: number) {
   const ind = page.getByTestId('wizard-step');
+  await ensureBread(page);
   for (let i = 0; i < 6; i++) {
     if (i === 0) await ind.waitFor({ timeout: 400 }).catch(() => undefined);
     if ((await ind.count()) === 0) return;

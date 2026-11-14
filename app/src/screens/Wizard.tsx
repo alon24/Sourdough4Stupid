@@ -34,7 +34,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
   const [name, setName] = useState(initial?.name ?? '');
   const [hydration, setHydration] = useState(initial?.hydration ?? 0.72);
   /** the recipe's base batch, as saved */
-  const [baseItems, setItems] = useState<Item[]>(initial ? itemsOf(initial) : isRecipe ? [] : [itemFrom(DEFAULT_ITEM_TYPES[0]!)]);
+  const [baseItems, setItems] = useState<Item[]>(initial ? itemsOf(initial) : []);
   /** how many of the base batch to make now, and other recipes to bake from the same dough */
   const [extras, setExtras] = useState<{ recipeId: string; mult: number }[]>([]);
   const extraRecipes = extras.map((e) => ({ e, r: recipes.find((x) => x.id === e.recipeId) })).filter((x): x is { e: { recipeId: string; mult: number }; r: Recipe } => !!x.r);
@@ -353,8 +353,8 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
               <div class="item-head">
                 <strong>{it.type === 'rolls' ? 'לחמניות קראסט' : nm}</strong>
                 <div class="item-count">
-                  <Stepper label={nm} value={it.count} set={(n) => (n <= 0 && (baseItems.length > 1 || isRecipe) ? setItems(baseItems.filter((_, j) => j !== k)) : upd({ count: n }))} max={24} />
-                  {baseItems.length > 1 && <button class="x" aria-label={`הסר ${nm}`} onClick={() => setItems(baseItems.filter((_, j) => j !== k))}>×</button>}
+                  <Stepper label={nm} value={it.count} set={(n) => (n <= 0 ? setItems(baseItems.filter((_, j) => j !== k)) : upd({ count: n }))} max={24} />
+                  {<button class="x" aria-label={`הסר ${nm}`} onClick={() => setItems(baseItems.filter((_, j) => j !== k))}>×</button>}
                 </div>
               </div>
               <div class="minis">
@@ -597,7 +597,7 @@ const groupOf = (i: Item): 'loaf' | 'rolls' => DEFAULT_ITEM_TYPES.find((t) => t.
 
 /** Recipes saved before items existed only know loaves and rolls. */
 function itemsOf(r: Recipe): Item[] {
-  if (r.items?.length) return r.items;
+  if (r.items?.length) return r.items.filter((i) => i.count > 0);
   const t = (id: string) => DEFAULT_ITEM_TYPES.find((x) => x.id === id)!;
   return [
     ...(r.loaves > 0 ? [{ ...itemFrom(t('loaf'), r.loaves), weight: r.weight }] : []),
