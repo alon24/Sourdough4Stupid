@@ -882,7 +882,7 @@ test('starter explanations: the need is spelled out, the shortfall says what to 
   await expect(page.getByTestId('starter-need')).toContainText('900 ג\' בצק');
   await goStep(page, 4);
   await expect(page.getByTestId('starter-need')).toContainText('90 ג\' סטארטר');
-  await expect(page.getByTestId('item-starter-g')).toHaveText('= 90 ג\'');
+  await expect(page.getByTestId('item-starter-g')).toHaveText('90 ג\'');
   await expect(page.getByTestId('percent-hint')).toContainText('10% מ־900 ג\' בצק = 90 ג\' סטארטר');
   await goStep(page, 4);
   await page.getByLabel('יש לי עכשיו (גרם)').fill('30');

@@ -200,3 +200,9 @@ details.adv[open] { display: flex; flex-direction: column; gap: 8px; }
 .mini input:focus-visible, .mini select:focus-visible { outline: 0; }
 .summary { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; font-size: 14px; color: var(--muted); }
 .summary span:last-child { font-weight: 600; color: var(--ink); }
+
+.pctbox { display: inline-flex; align-items: center; gap: 1px; direction: ltr; }
+.pctbox input[type=number] { width: 44px; margin-left: -22px; text-align: right; }
+.mini .sub { font-size: 13px; font-weight: 500; opacity: .75; unicode-bidi: isolate; }
+.mini select { field-sizing: content; width: auto; min-width: 44px; flex: 0 0 auto; }
+.mini input[type=number]:not(.pctbox input) { width: 2.6em; }
