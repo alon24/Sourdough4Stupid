@@ -387,8 +387,8 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
                 )}
                 <label class="mini">
                   סטארטר
-                  <input type="number" inputMode="numeric" min="1" max="40" aria-label={`אחוז סטארטר ${nm}`} value={Math.round(it.starterPct * 100)} onInput={(e) => upd({ starterPct: Math.min(0.4, Math.max(0.01, (+e.currentTarget.value || 1) / 100)) })} />%
-                  <span class="num" data-testid="item-starter-g">= {Math.round(it.count * it.weight * it.starterPct)} ג'</span>
+                  <span class="pctbox" dir="ltr"><input type="number" inputMode="numeric" min="1" max="40" aria-label={`אחוז סטארטר ${nm}`} value={Math.round(it.starterPct * 100)} onInput={(e) => upd({ starterPct: Math.min(0.4, Math.max(0.01, (+e.currentTarget.value || 1) / 100)) })} /><span>%</span></span>
+                  <bdi class="num sub" dir="rtl" data-testid="item-starter-g">{Math.round(it.count * it.weight * it.starterPct)} ג'</bdi>
                 </label>
               </div>
             </div>
