@@ -40,6 +40,7 @@ for (const size of SIZES) {
 
 test('button labels are vertically centered on every screen', async ({ page }) => {
   await page.goto('/#/recipe');
+  await page.getByRole('button', { name: '+ לחם כפרי', exact: true }).click();
   await page.getByLabel('שם המתכון').fill('בדיקה');
   await page.getByRole('button', { name: 'שמור מתכון' }).click();
   for (const r of ['recipes', '', 'plan', 'start', 'starter', 'calc', 'app']) {

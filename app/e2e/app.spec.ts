@@ -378,6 +378,7 @@ test('start questionnaire: an active starter means no feeding steps', async ({ p
 test('recipes: create with a managed inclusion, bake from it, and derive a new recipe on change', async ({ page }) => {
   await page.goto('/#/recipes');
   await page.getByRole('link', { name: 'מתכון חדש' }).click();
+  await page.getByRole('button', { name: '+ לחם כפרי', exact: true }).click();
   await page.getByLabel('שם המתכון').fill('הלחם של שבת');
   await goStep(page, 3);
   await page.getByText('ניהול תוספות').click();
@@ -457,6 +458,7 @@ test('kneading rounds default to 4, can be set in the wizard and added or remove
 
 test('recipes export (JSON, CSV, HTML page) and import round-trip', async ({ page }) => {
   await page.goto('/#/recipe');
+  await page.getByRole('button', { name: '+ לחם כפרי', exact: true }).click();
   await page.getByLabel('שם המתכון').fill('לחם ייצוא');
   await page.getByRole('button', { name: 'שמור מתכון' }).click();
   await page.goto('/#/recipes');
@@ -562,6 +564,7 @@ test('reference bake: 32 g stiff, 300 g tomorrow, 2 loaves of 1 kg + rolls, spli
 
 test('autolyse can be switched off and on in a running bake, alarms follow, and a new recipe can be derived', async ({ page }) => {
   await page.goto('/#/recipe');
+  await page.getByRole('button', { name: '+ לחם כפרי', exact: true }).click();
   await page.getByLabel('שם המתכון').fill('לחם לבדיקה');
   await page.getByRole('button', { name: 'שמור מתכון' }).click();
   await page.getByRole('link', { name: 'אפייה חדשה' }).first().click();
@@ -925,6 +928,7 @@ test('scenario 1, a new user opens the app: nothing running, asked about the sta
 
 test('scenario 2, a returning user wants a recipe: home, recipes, bake from it', async ({ page }) => {
   await page.goto('/#/recipe');
+  await page.getByRole('button', { name: '+ לחם כפרי', exact: true }).click();
   await page.getByLabel('שם המתכון').fill('הלחם של שבת');
   await page.getByRole('button', { name: 'שמור מתכון' }).click();
   await page.goto('/#/');
@@ -985,6 +989,7 @@ test('scenario 6, nothing is running: a clear way to start', async ({ page }) =>
 
 test('recipe editing never depends on the starter I have: no stock fields or warnings, only what the recipe needs', async ({ page }) => {
   await page.goto('/#/recipe');
+  await page.getByRole('button', { name: '+ לחם כפרי', exact: true }).click();
   await expect(page.getByTestId('recipe-starter')).toContainText('כמה סטארטר צריך');
   await expect(page.getByTestId('recipe-starter')).toContainText('בלי קשר לכמה יש לך');
   await goStep(page, 4);
@@ -1163,6 +1168,7 @@ test('flour mix is tidy: saved blends carry their own delete with a confirm, one
   await seedState(page, { flourPresets: [{ id: 'p1', name: 'שבת', items: [{ flour: 'white', grams: 800 }, { flour: 'wholewheat', grams: 200 }] }] });
   await page.reload();
   await page.goto('/#/recipe');
+  await page.getByRole('button', { name: '+ לחם כפרי', exact: true }).click();
   await goStep(page, 3);
   await page.getByRole('button', { name: 'הרכב קמחים משלי' }).click();
   const presets = page.getByTestId('presets');
@@ -1281,6 +1287,7 @@ test('flour mix fits a narrow phone: nothing in the card, including the custom f
   await seedState(page, { customFlours: [{ id: 'c1', name: 'קמח כוסמין מלא עם שם ארוך מאוד', absorption: 0.08 }] });
   await page.reload();
   await page.goto('/#/recipe');
+  await page.getByRole('button', { name: '+ לחם כפרי', exact: true }).click();
   await goStep(page, 3);
   await page.getByRole('button', { name: 'הרכב קמחים משלי' }).click();
   await page.locator('details', { hasText: 'קמח משלי' }).locator('summary').click();
@@ -1488,4 +1495,20 @@ test('flows 5: short summaries on the recipe card, the running bake card and the
   await expect(page.getByTestId('plan-summary')).toContainText('מחמצת');
   await page.goto('/#/');
   await expect(page.getByTestId('running').getByTestId('plan-summary')).toContainText('הידרציה');
+});
+
+test('flows 6: a new recipe starts empty, starter comes after the items, zero removes the row', async ({ page }) => {
+  await page.goto('/#/recipe');
+  await expect(page.getByTestId('item-row')).toHaveCount(0);
+  await expect(page.getByTestId('items-empty')).toBeVisible();
+  await expect(page.getByTestId('recipe-starter')).toHaveCount(0);
+  await page.getByRole('button', { name: '+ לחמניות', exact: true }).click();
+  await expect(page.getByTestId('item-row')).toHaveCount(1);
+  await expect(page.getByTestId('recipe-starter')).toBeVisible();
+  const itemsY = (await page.getByTestId('items').boundingBox())!.y;
+  const starterY = (await page.getByTestId('recipe-starter').boundingBox())!.y;
+  expect(starterY).toBeGreaterThan(itemsY);
+  for (let i = 0; i < 30 && (await page.getByTestId('item-row').count()) > 0; i++) await page.getByRole('button', { name: 'פחות לחמניות' }).click();
+  await expect(page.getByTestId('item-row')).toHaveCount(0);
+  await expect(page.getByTestId('recipe-starter')).toHaveCount(0);
 });

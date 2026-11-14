@@ -110,6 +110,7 @@ test('walkthrough with screenshots: the reference bake end to end on a phone vie
 
   // recipes: save, export, import, download page
   await page.goto('/#/recipe');
+  await page.getByRole('button', { name: '+ לחם כפרי', exact: true }).click();
   await page.getByLabel('שם המתכון').fill('בדיקה');
   await page.getByRole('button', { name: 'שמור מתכון' }).click();
   await shot(page, '12-recipes');
