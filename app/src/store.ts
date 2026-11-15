@@ -99,6 +99,8 @@ export interface Recipe {
   mix: { flour: string; grams: number }[];
   /** what the bake makes: loaves, rolls, pizza and so on, with each item's starter share */
   items?: Item[];
+  /** the baker's free notes on this recipe */
+  notes?: string;
 }
 
 export const DEFAULT_INCLUSIONS: InclusionDef[] = [

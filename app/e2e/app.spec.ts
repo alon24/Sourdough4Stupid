@@ -1558,3 +1558,44 @@ test('flows 8: inclusions only for bread, not for rolls or pizza', async ({ page
   await goStep(page, 3);
   await expect(page.getByTestId('inclusions-box')).toBeVisible();
 });
+
+test('flows 9: a product can be removed during the bake and the steps follow', async ({ page }) => {
+  await page.goto('/#/recipe');
+  await page.getByRole('button', { name: '+ לחם כפרי', exact: true }).click();
+  await page.getByRole('button', { name: '+ לחמניות', exact: true }).click();
+  await page.getByLabel('שם המתכון').fill('לחם ולחמניות');
+  await page.getByRole('button', { name: 'שמור מתכון' }).click();
+  await page.goto('/#/recipes');
+  await page.getByRole('link', { name: 'אפייה חדשה' }).first().click();
+  await startBake(page);
+  await expect(page.getByTestId('split')).toContainText('כאן האפייה מתפצלת');
+  const tracks = page.getByTestId('track');
+  const before = await tracks.count();
+  expect(before).toBeGreaterThanOrEqual(2);
+  await page.getByRole('button', { name: /ניהול לחמניות/ }).click();
+  await page.getByTestId('remove-product').click();
+  await expect(tracks).toHaveCount(before - 1);
+  await expect(page.getByTestId('split').getByRole('strong')).not.toContainText('לחמניות');
+  // the last product cannot be removed from the bake
+  await page.getByRole('button', { name: /^ניהול / }).first().click();
+  await expect(page.getByTestId('remove-product')).toHaveCount(0);
+});
+
+test('flows 10: per-product oven instructions (default, editable) and free notes on a recipe', async ({ page }) => {
+  await page.goto('/#/recipe');
+  await page.getByRole('button', { name: '+ לחם כפרי', exact: true }).click();
+  await page.getByRole('button', { name: '+ פיצה', exact: true }).click();
+  // defaults are shown per product
+  await page.getByText('אפייה: ברירת מחדל').first().click();
+  await expect(page.getByTestId('items')).toContainText('בסיר ברזל סגור ב־240°');
+  // the baker edits the bread's oven instructions
+  await page.getByLabel('הוראות אפייה ללחם').fill('30 דק\' בסיר ב־245° ואז 20 דק\' פתוח ב־225°');
+  await page.getByLabel('שם המתכון').fill('לחם ופיצה');
+  await page.getByLabel('הערות למתכון').fill('להחליף 20% קמח מלא בחורף');
+  await page.getByRole('button', { name: 'שמור מתכון' }).click();
+  await expect(page.getByTestId('recipe-notes')).toContainText('להחליף 20% קמח מלא בחורף');
+  // a bake from it carries the edited instructions into the bake step
+  await page.getByRole('link', { name: 'אפייה חדשה' }).first().click();
+  await startBake(page);
+  await expect(page.locator('body')).toContainText('30 דק\' בסיר ב־245°');
+});

@@ -405,9 +405,9 @@ export function PlanScreen() {
             </label>
             <div class="grid2">
               <button class="btn small" onClick={() => { setAdding(true); }}>+ שלב למסלול</button>
-              {sheetB.kind === 'loaf' ? (
-                <button class="btn small" onClick={() => { applyB(removeBranch(steps, branches, sheetB.id, total), true); setBranchOpen(null); }}>הסר כיכר</button>
-              ) : <span></span>}
+              {branches.length > 1 ? (
+                <button class="btn small" data-testid="remove-product" onClick={() => { applyB(removeBranch(steps, branches, sheetB.id, total), true); setBranchOpen(null); }}>{sheetB.kind === 'loaf' ? 'הסר כיכר' : 'הסר את המוצר'}</button>
+              ) : <span class="muted">המוצר היחיד באפייה. כדי לוותר עליו מבטלים את האפייה.</span>}
             </div>
             {sheetB.kind === 'loaf' && <button class="btn small" onClick={() => applyB(addLoaf(steps, branches, total), true)}>+ עוד כיכר</button>}
           </div>

@@ -62,6 +62,7 @@ export function Recipes() {
               <div class="muted">
                 {[r.loaves > 0 && loavesText(r.loaves), r.rolls > 0 && rollsText(r.rolls), ...r.inclusions].filter(Boolean).join(' · ')}
               </div>
+              {r.notes && <div class="muted" data-testid="recipe-notes" style="white-space:pre-wrap">📝 {r.notes}</div>}
               <div class="summary" data-testid="recipe-summary">
                 {recipeSummary(r, history).map((l) => <span>{l}</span>)}
               </div>
