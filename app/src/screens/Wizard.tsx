@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import {
-  buildChain, combineCheck, loafHe, rollsHe, DEFAULT_ITEM_TYPES, mergeItems, scaleItems, type Part, hydrationAdvice, itemFrom, plan, starterCheck, starterNeed, suggestHydration, type Item,
+  buildChain, combineCheck, loafHe, rollsHe, DEFAULT_ITEM_TYPES, bakeDefault, mergeItems, scaleItems, type Part, hydrationAdvice, itemFrom, plan, starterCheck, starterNeed, suggestHydration, type Item,
   type BlendShare, type LoafShape, type PlanInput,
 } from '../../../core/src/index';
 import { allFlours } from '../../../core/src/index';
@@ -32,6 +32,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
   const isRecipe = kind === 'recipe';
   const initial = recipes.find((r) => r.id === recipeId);
   const [name, setName] = useState(initial?.name ?? '');
+  const [notes, setNotes] = useState(initial?.notes ?? '');
   const [hydration, setHydration] = useState(initial?.hydration ?? 0.72);
   /** the recipe's base batch, as saved */
   const [baseItems, setItems] = useState<Item[]>(initial ? itemsOf(initial) : []);
@@ -58,7 +59,8 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
   const weight = loaves ? Math.round(loafItems.reduce((n, i) => n + i.count * i.weight, 0) / loaves) : 1000;
   const rollWeight = rolls ? Math.round(rollItems.reduce((n, i) => n + i.count * i.weight, 0) / rolls) : 90;
   const rollsName = rollItems.length === 1 ? (rollItems[0]!.name ?? 'לחמניות') : 'לחמניות';
-  const rollsBake = rollItems.map((i) => DEFAULT_ITEM_TYPES.find((t) => t.id === i.type)?.bakeNote).find(Boolean);
+  const rollsBake = rollItems.map((i) => i.bake?.trim() || DEFAULT_ITEM_TYPES.find((t) => t.id === i.type)?.bakeNote).find(Boolean);
+  const loafBake = bLoafItems.map((i) => i.bake?.trim()).find(Boolean);
   const [shape, setShape] = useState<LoafShape>(initial?.shape ?? 'free');
   const [at, setAt] = useState(defaultTarget());
   const [picked, setPicked] = useState<string[]>(initial?.inclusions ?? []);
@@ -143,7 +145,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
     const itemsToSave = pieceItems;
     const r: Recipe = {
       id: initial?.id ?? `r${Date.now()}`, name: name.trim(), fav: initial?.fav ?? false,
-      loaves: bLoaves, rolls: bRolls, weight: bWeight, shape, inclusions: hasLoaf ? picked : [], kneading, cold, folds, foldGapMin: foldGap, autolyse, rollEnrich: enrich, hydration, mix: items, items: itemsToSave,
+      loaves: bLoaves, rolls: bRolls, weight: bWeight, shape, inclusions: hasLoaf ? picked : [], kneading, cold, folds, foldGapMin: foldGap, autolyse, rollEnrich: enrich, hydration, mix: items, items: itemsToSave, ...(notes.trim() ? { notes: notes.trim() } : {}),
     };
     setState({ recipes: initial ? recipes.map((x) => (x.id === r.id ? r : x)) : [...recipes, r] });
     location.hash = '#/recipes';
@@ -177,6 +179,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
     const input: PlanInput = {
       outOfOvenAt: at, loaves, rolls, loafWeight: weight, rollWeight, loafShape: shape,
       ...(rolls > 0 ? { rollsName, ...(rollsBake ? { rollsBake } : {}) } : {}),
+      ...(loafBake && loaves > 0 ? { loafBake } : {}),
       starter: {
         type: starter.type, hydration: starter.hydration, daysInFridge: starter.weak ? Math.max(daysSinceFed(starter), 15) : daysSinceFed(starter),
         ...(starterMode && !ready ? { haveGrams: have } : {}),
@@ -344,7 +347,9 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
 
 <div class="stepbox" hidden={!on(1)}>
       <section class="card" aria-label="מה אופים" data-testid="items">
-        <strong>מה אופים</strong>
+        <strong>{isRecipe ? 'המוצרים של המתכון' : initial ? 'המוצרים במתכון' : 'מה אופים'}</strong>
+        {isRecipe && <span class="muted" data-testid="recipe-defn">מתכון הוא בצק ומוצרים. המוצרים הם מה שהבצק הזה הופך אליו; כמה מוצרים יחד הם בצק אחד שמתפצל.</span>}
+        {!isRecipe && initial && <span class="muted" data-testid="recipe-products">אלה המוצרים של המתכון. אפשר להוריד חלק מהם לאפייה הזאת, או להוסיף מוצר מאותו בצק.</span>}
         {baseItems.length === 0 && <span class="muted" data-testid="items-empty">מה להכין במתכון הזה? בחרו מהרשימה:</span>}
         {baseItems.map((it, k) => {
           const isLoaf = groupOf(it) === 'loaf';
@@ -388,10 +393,17 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
                   <bdi class="num sub" dir="rtl" data-testid="item-starter-g">{Math.round(it.count * it.weight * it.starterPct)} ג'</bdi>
                 </label>
               </div>
+              <details class="bake-edit">
+                <summary>{it.bake?.trim() ? 'אפייה: ההוראות שלי' : 'אפייה: ברירת מחדל'}</summary>
+                <textarea rows={3} aria-label={`הוראות אפייה ל${nm}`} placeholder="לכתוב הוראות אפייה משלי (אופציונלי)" value={it.bake ?? ''} onInput={(e) => upd({ bake: e.currentTarget.value })}></textarea>
+                <span class="muted">{it.bake?.trim() ? 'אלה ההוראות שיופיעו בשלב האפייה.' : bakeDefault(it.type) || 'אפשר לכתוב כאן איך אופים את המוצר הזה.'}</span>
+                {it.bake?.trim() && <button class="btn small" onClick={() => upd({ bake: undefined })}>חזרה לברירת המחדל</button>}
+              </details>
             </div>
           );
         })}
         {baseItems.length > 0 && <span class="muted" data-testid="percent-hint">סטארטר הוא חלק ממשקל הבצק, למשל 10% מ־900 ג' בצק = 90 ג' סטארטר. יותר סטארטר: התפחה מהירה וחמוץ פחות.</span>}
+        {!isRecipe && initial && baseItems.length > 0 && <span class="sub">להוסיף מוצר מאותו בצק</span>}
         <div class="pills" role="group" aria-label="הוספת פריט">
           {DEFAULT_ITEM_TYPES.filter((t) => t.id !== 'custom' && !baseItems.some((i) => i.type === t.id)).map((t) => (
             <button class="pill" onClick={() => setItems([...baseItems, itemFrom(t)])}>+ {t.name}</button>
@@ -415,7 +427,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
         <section class="card" aria-label="שילוב מתכונים וסך הכול" data-testid="scale">
           {recipes.filter((r) => r.id !== initial?.id && !extras.some((e) => e.recipeId === r.id)).length > 0 && (
             <label class="field">
-              לשלב עוד מתכון באותה אפייה
+              או לשלב מתכון אחר באותה אפייה
               <select aria-label="הוספת מתכון לשילוב" value="" onChange={(e) => { const id = e.currentTarget.value; if (id) setExtras([...extras, { recipeId: id, mult: 1 }]); }}>
                 <option value="">בחר מתכון...</option>
                 {recipes.filter((r) => r.id !== initial?.id && !extras.some((e) => e.recipeId === r.id)).map((r) => <option value={r.id}>{r.name} ({describe(itemsOf(r))})</option>)}
@@ -469,6 +481,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
         <InclusionsEditor />
       </div>}
 
+      {isRecipe && <span class="sub" data-testid="dough-label">הבצק: קמחים, הידרציה ותהליך</span>}
       {!isRecipe && !editFlour && (
         <div class="card row" aria-label="קמח" data-testid="flour-summary">
           <div style="display:flex;flex-direction:column;min-width:0"><strong>קמח</strong><span class="muted">{preset ? preset.name : flourLine}</span></div>
@@ -570,6 +583,12 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
         <label class="card row" style="justify-content:flex-start;min-height:48px" data-testid="changed-from-recipe">
           <input type="checkbox" checked={saveNew} onChange={(e) => setSaveNew(e.currentTarget.checked)} style="width:24px;height:24px" />
           <span>שונה מהמתכון "{initial?.name}" (רק באפייה הזאת). לשמור גם כמתכון חדש?</span>
+        </label>
+      )}
+      {isRecipe && (
+        <label class="field" data-testid="recipe-notes-field">
+          הערות למתכון
+          <textarea rows={4} aria-label="הערות למתכון" placeholder="למשל: אפשר להחליף ל־20% מלא, לצמצם מים בחורף..." value={notes} onInput={(e) => setNotes(e.currentTarget.value)}></textarea>
         </label>
       )}
       {isRecipe ? (

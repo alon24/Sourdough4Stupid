@@ -32,6 +32,16 @@ export const DEFAULT_ITEM_TYPES: ItemType[] = [
   { id: 'custom', name: 'פריט משלי', plural: 'יחידות', group: 'rolls', weight: 150, starterPct: 0.1 },
 ];
 
+/** What to do in the oven, per kind of product. Shown in the recipe and editable per item. */
+export const DEFAULT_BAKE: Record<string, string> = {
+  loaf: "25 דק' בסיר ברזל סגור ב־240°, ואז בלי מכסה ב־230° כ־20 דק' עד השחמה עמוקה.",
+  pan: "25 דק' בתבנית מכוסה ב־230°, ואז בלי כיסוי ב־210° כ־20 דק'. לחלץ מהתבנית ל־5 הדקות האחרונות.",
+  rolls: "תנור 230° עם תבנית מים רותחים בתחתית. 12 דק' עם אדים, להוציא את המים, להנמיך ל־210° ועוד 8–10 דק' עד השחמה.",
+};
+
+/** The default oven instructions for an item type, empty when there is none. */
+export const bakeDefault = (typeId: string): string => DEFAULT_ITEM_TYPES.find((t) => t.id === typeId)?.bakeNote ?? DEFAULT_BAKE[typeId] ?? '';
+
 export interface Item {
   /** the item type id */
   type: string;
@@ -40,6 +50,8 @@ export interface Item {
   /** shown name, for custom items */
   name?: string;
   starterPct: number;
+  /** the baker's own oven instructions for this item, instead of the default */
+  bake?: string;
 }
 
 export const itemFrom = (t: ItemType, count = 1): Item => ({ type: t.id, count, weight: t.weight, starterPct: t.starterPct, name: t.name });

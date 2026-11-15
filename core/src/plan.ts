@@ -77,6 +77,8 @@ export interface PlanInput {
   /** what the non-loaf pieces are called (default לחמניות), and how to bake them */
   rollsName?: string;
   rollsBake?: string;
+  /** the baker's own oven instructions for the loaves (default: from the weight and shape) */
+  loafBake?: string;
   /** when the loaves come out of the oven, epoch ms */
   outOfOvenAt: number;
   loaves: number;
@@ -270,6 +272,12 @@ export function plan(input: PlanInput, now: number = Date.now()): Plan {
       }
       if (st.kind === 'bakeRolls' && input.rollsBake) { st.title = `לאפות ${rn}`; st.note = input.rollsBake; }
     }
+  }
+  if (input.rollsBake && (!rn || rn === 'לחמניות')) {
+    for (const st of steps) if (st.kind === 'bakeRolls') st.note = input.rollsBake;
+  }
+  if (input.loafBake) {
+    for (const st of steps) if (st.kind === 'bake') st.note = input.loafBake;
   }
   return {
     steps,
