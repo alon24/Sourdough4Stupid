@@ -123,7 +123,9 @@ nav.tabs { z-index: 20; }
 .track { border-inline-start: 4px solid var(--sun); background: var(--card); border-radius: 20px; padding: 10px 8px; display: flex; flex-direction: column; gap: 2px; margin-bottom: 10px; }
 .track > .row { padding: 0 8px; }
 .note-user { padding: 0 8px; font-size: 14px; color: var(--coral); }
-.jump { position: sticky; bottom: 96px; align-self: center; z-index: 15; background: var(--sun); color: #2B1D3A; border-color: var(--sun); box-shadow: 0 4px 14px rgba(0,0,0,.35); width: auto !important; }
+.jump { position: fixed; left: 16px; bottom: 96px; z-index: 15; background: var(--sun); color: #2B1D3A; border-color: var(--sun); box-shadow: 0 4px 14px rgba(0,0,0,.35); width: 48px !important; height: 48px; min-height: 48px; padding: 0; border-radius: 50%; font-size: 22px; line-height: 1; display: flex; align-items: center; justify-content: center; }
+details.card:not([open]) { display: block; }
+details.card > summary { list-style-position: inside; }
 textarea { font: inherit; color: inherit; background: transparent; border: 2px solid var(--ink); border-radius: 16px; padding: 8px 12px; width: 100%; }
 
 .actions .btn { min-height: 56px; }

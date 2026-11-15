@@ -75,7 +75,7 @@ export function Start() {
 
       {fromCard && <p class="muted" data-testid="start-from-card">לפי כרטיס הסטארטר שלך. אם זה השתנה, בחר מחדש. <a href="#/starter">עדכון מצב הסטארטר</a></p>}
       <Q title="יש לך סטארטר? באיזה מצב?">
-        {([['none', 'אין לי'], ['fridge', 'במקרר'], ['active', 'פעיל ובועבע'], ['weak', 'חלש ועייף']] as [Starter, string][]).map(([k, l]) => (
+        {([['none', 'אין לי'], ['fridge', 'במקרר'], ['active', 'פעיל ומוכן'], ['weak', 'חלש ועייף']] as [Starter, string][]).map(([k, l]) => (
           <button class={`chip ${starter === k ? 'on' : ''}`} aria-pressed={starter === k} onClick={() => { setStarter(k); setScale(null); setHave(null); }}>{l}</button>
         ))}
       </Q>
