@@ -3,7 +3,7 @@ import { dayName, hhmm, until } from '../format';
 import { planSummary } from '../summary';
 import { complete, resumeAt, shift } from '../../../core/src/index';
 import { useState } from 'preact/hooks';
-import { type ActivePlan, allPlans, closePlan, daysSinceFed, planId, selectPlan, setState, updatePlan, useStore } from '../store';
+import { type ActivePlan, allPlans, closePlan, planId, selectPlan, updatePlan, useStore } from '../store';
 
 const isApk = Capacitor.isNativePlatform();
 const CHECKED = 'machmetzet.alarms-checked';
@@ -11,24 +11,15 @@ const alarmsChecked = (): boolean => { try { return localStorage.getItem(CHECKED
 
 export function Home() {
   const st = useStore();
-  const { starter, history } = st;
+  const { history } = st;
   const nextAt = (p: ActivePlan) => p.steps.find((s) => s.doneAt === undefined)!.at;
   const running = allPlans(st).filter((p) => p.steps.some((s) => s.doneAt === undefined)).sort((a, b) => nextAt(a) - nextAt(b));
-  const days = daysSinceFed(starter);
-  const known = starter.known === true;
-  const mood = days === 0 ? 'הואכל היום' : days === 1 ? 'הואכל אתמול' : `הואכל לפני ${days} ימים`;
-  const advice = !starter.inFridge
-    ? 'בחוץ ופעיל.'
-    : days > 30
-      ? 'במקרר כבר הרבה זמן. צריך שתי האכלות חיזוק לפני אפייה.'
-      : days > 14
-        ? 'במקרר. האכלת חיזוק אחת לפני האפייה.'
-        : 'במקרר. האכלה אחת והוא חוזר לעניינים.';
   /** the quick action that is open: a step picker or the cancel choices for one bake */
+  const [promptGone, setPromptGone] = useState(false);
+  const markChecked = () => { try { localStorage.setItem(CHECKED, '1'); } catch { /* ignore */ } setPromptGone(true); };
   const [quick, setQuick] = useState<{ id: string; kind: 'goto' | 'cancel' } | null>(null);
   const quickPlan = quick ? allPlans(st).find((p) => planId(p) === quick.id) : undefined;
   const act = (p: ActivePlan, fn: (steps: ActivePlan['steps']) => ActivePlan['steps']) => updatePlan(planId(p), (x) => ({ ...x, steps: fn(x.steps), undo: x.steps }));
-  const markFed = (p: object) => setState({ starter: { ...starter, known: true, none: false, ...p } });
 
   return (
     <main>
@@ -40,11 +31,15 @@ export function Home() {
         <span class="muted" data-testid="version" style="direction:ltr;font-size:12px;white-space:nowrap">v{__APP_VERSION__}{isApk ? ' · APK' : ''}</span>
       </div>
 
-      {isApk && !alarmsChecked() && (
-        <a class="card" href="#/more" onClick={() => { try { localStorage.setItem(CHECKED, '1'); } catch { /* ignore */ } }} data-testid="alarm-check-prompt" style="text-decoration:none;color:inherit">
+      {isApk && !alarmsChecked() && !promptGone && (
+        <div class="card" data-testid="alarm-check-prompt">
           <strong>בדוק שהשעונים יצלצלו</strong>
-          <span class="muted">פעם אחת: הרשאות והתראה לדוגמה בעוד 5 שניות. לחיצה פותחת את הבדיקה.</span>
-        </a>
+          <span class="muted">פעם אחת: הרשאות והתראה לדוגמה בעוד 5 שניות.</span>
+          <div class="grid2">
+            <a class="btn small primary" href="#/more" onClick={() => markChecked()}>לבדוק עכשיו</a>
+            <button class="btn small" onClick={() => markChecked()}>לא עכשיו</button>
+          </div>
+        </div>
       )}
 
       {running.length > 0 ? (
@@ -87,38 +82,6 @@ export function Home() {
       )}
 
       <a class={`btn ${running.length === 0 ? 'primary' : ''}`} href="#/recipes" data-testid="to-recipes">📖 {running.length === 0 ? 'לבחור מתכון ולהתחיל' : 'המתכונים שלי'}</a>
-
-      {!known && !starter.none ? (
-        <section class="card sun" aria-label="הסטארטר שלי" data-testid="starter-ask">
-          <span class="sub">הסטארטר</span>
-          <span class="big">יש לך סטארטר?</span>
-          <span>כמה שאלות קצרות: איפה הוא, מתי האכלת, ובאיזה מצב. משם האפליקציה מחשבת הכול.</span>
-          <a class="btn primary small" href="#/starter">כן, בוא נגדיר</a>
-          <button class="btn small" style="border-color:#2B1D3A;color:#2B1D3A" onClick={() => setState({ starter: { ...starter, none: true } })}>אין לי עדיין</button>
-        </section>
-      ) : starter.none ? (
-        <section class="card" aria-label="הסטארטר שלי">
-          <span class="sub">הסטארטר</span>
-          <span class="big">אין סטארטר עדיין</span>
-          <span class="muted">אפשר להכין אחד מקמח ומים בכמה ימים. כשיש, מגדירים אותו כאן.</span>
-          <a class="btn small" href="#/starter">יש לי סטארטר עכשיו</a>
-        </section>
-      ) : (
-        <section class="card sun" aria-label="הסטארטר שלי">
-          <span class="sub">{starter.name}</span>
-          <span class="big">{mood}</span>
-          <span>{advice}</span>
-          <div class="row" style="justify-content:flex-start;flex-wrap:wrap">
-            <button class="btn primary small" onClick={() => markFed({ lastFedAt: Date.now(), inFridge: false })}>
-              האכלתי עכשיו
-            </button>
-            <button class="btn small" style="border-color:#2B1D3A;color:#2B1D3A" onClick={() => markFed({ inFridge: !starter.inFridge })}>
-              {starter.inFridge ? 'הוצאתי מהמקרר' : 'הכנסתי למקרר'}
-            </button>
-          </div>
-          <a class="btn small" href="#/starter" style="color:#2B1D3A;border-color:#2B1D3A">עדכון מצב הסטארטר</a>
-        </section>
-      )}
 
       {history.length > 0 && (
         <section class="card" aria-label="יומן אפיות" data-testid="recent">

@@ -46,9 +46,11 @@ test.beforeEach(async ({ page }) => {
   await page.reload();
 });
 
-test('home shows the starter and is right-to-left', async ({ page }) => {
+test('home is right-to-left and has no starter questions, those live under more', async ({ page }) => {
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
   await expect(page.getByRole('heading', { name: 'המחמצת שלי' })).toBeVisible();
+  await expect(page.getByTestId('starter-ask')).toHaveCount(0);
+  await page.goto('/#/more');
   await expect(page.getByTestId('starter-ask')).toBeVisible();
 });
 
@@ -58,6 +60,7 @@ test('feeding the starter updates its mood', async ({ page }) => {
     st.starter = { name: 'הסטארטר הקשה שלי', type: 'stiff', hydration: 0.5, lastFedAt: Date.now() - 9 * 86_400_000, inFridge: true, known: true };
     localStorage.setItem('machmetzet.v1', JSON.stringify(st));
   });
+  await page.goto('/#/more');
   await page.reload();
   await expect(page.getByText('הואכל לפני 9 ימים')).toBeVisible();
   await page.getByRole('button', { name: 'האכלתי עכשיו' }).click();
@@ -422,6 +425,7 @@ test('recipes: create with a managed inclusion, bake from it, and derive a new r
 });
 
 test('starter status questionnaire saves type, place, time and amount', async ({ page }) => {
+  await page.goto('/#/more');
   await page.getByRole('link', { name: /בוא נגדיר|עדכון מצב הסטארטר/ }).click();
   await page.getByRole('button', { name: 'רגיל (100%)' }).click();
   await page.getByRole('button', { name: 'במקרר' }).click();
@@ -429,6 +433,7 @@ test('starter status questionnaire saves type, place, time and amount', async ({
   await page.getByRole('button', { name: '100', exact: true }).click();
   await expect(page.getByTestId('starter-advice')).toContainText('חיזוק');
   await page.getByRole('button', { name: 'שמור ובחזרה לבית' }).click();
+  await page.goto('/#/more');
   await expect(page.getByText('הסטארטר הרגיל שלי')).toBeVisible();
   await page.reload();
   await expect(page.getByText('הסטארטר הרגיל שלי')).toBeVisible();
@@ -739,17 +744,18 @@ test('sync screen opens and explains the missing Google id', async ({ page }) =>
   await expect(page.getByRole('button', { name: 'התחברות עם Google' })).toBeDisabled();
 });
 
-test('home: bake status before the starter, the starter is asked about and never called hungry from a guess', async ({ page }) => {
+test('home: bake status and recipes only, the starter is asked about under more and never called hungry from a guess', async ({ page }) => {
   await page.goto('/#/');
+  await expect(page.getByTestId('starter-ask')).toHaveCount(0);
+  await expect(page.getByText(/רעב כבר/)).toHaveCount(0);
+  await page.goto('/#/more');
   const ask = page.getByTestId('starter-ask');
   await expect(ask).toContainText('יש לך סטארטר?');
-  await expect(page.getByText(/רעב כבר/)).toHaveCount(0);
-  const status = await page.getByTestId('idle').boundingBox();
-  const starter = await ask.boundingBox();
-  expect(status!.y).toBeLessThan(starter!.y);
   // home is a gateway: one way into recipes, no "start a bake" without a recipe
+  await page.goto('/#/');
   await expect(page.getByTestId('to-recipes')).toBeVisible();
   await expect(page.getByRole('link', { name: /להתחיל אפייה/ })).toHaveCount(0);
+  await page.goto('/#/more');
   await ask.getByRole('link', { name: 'כן, בוא נגדיר' }).click();
   await expect(page.getByRole('heading', { name: 'מה מצב הסטארטר?' })).toBeVisible();
 });
@@ -924,6 +930,8 @@ const seedState = (page: import('@playwright/test').Page, patch: Record<string, 
 test('scenario 1, a new user opens the app: nothing running, asked about the starter, answers, and is led to start a bake', async ({ page }) => {
   await page.goto('/#/');
   await expect(page.getByTestId('idle')).toContainText('אין אפייה רצה');
+  await expect(page.getByTestId('starter-ask')).toHaveCount(0);
+  await page.goto('/#/more');
   await expect(page.getByTestId('starter-ask')).toBeVisible();
   await page.getByRole('link', { name: 'כן, בוא נגדיר' }).click();
   await page.getByRole('button', { name: 'רגיל (100%)' }).click();
@@ -963,7 +971,7 @@ test('scenario 3, checking a running bake: home says a plan is running, shows th
 });
 
 test('scenario 4, starting a bake without a starter: the wizard asks how much starter and warns', async ({ page }) => {
-  await page.goto('/#/');
+  await page.goto('/#/more');
   await page.getByRole('button', { name: 'אין לי עדיין' }).click();
   await expect(page.getByText('אין סטארטר עדיין')).toBeVisible();
   await page.goto('/#/new');
