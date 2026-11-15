@@ -35,7 +35,7 @@ export function Home() {
       <div class="row" style="align-items:flex-start">
         <div>
           <span class="muted">שלום!</span>
-          <h1>מה אופים היום?</h1>
+          <h1>המחמצת שלי</h1>
         </div>
         <span class="muted" data-testid="version" style="direction:ltr;font-size:12px;white-space:nowrap">v{__APP_VERSION__}{isApk ? ' · APK' : ''}</span>
       </div>
@@ -82,14 +82,11 @@ export function Home() {
       ) : (
         <section class="card" data-testid="idle">
           <span class="big">אין אפייה רצה</span>
-          <span class="muted">כשתתחיל אפייה, כאן תראה מה השלב הבא ומתי.</span>
+          <span class="muted">כשתתחיל אפייה, כאן תראה מה השלב הבא ומתי. מתחילים ממתכון.</span>
         </section>
       )}
 
-      <div class="grid2">
-        <a class="btn" href="#/recipes">📖 מתכונים</a>
-        <a class="btn primary" href="#/new">🍞 להתחיל אפייה</a>
-      </div>
+      <a class={`btn ${running.length === 0 ? 'primary' : ''}`} href="#/recipes" data-testid="to-recipes">📖 {running.length === 0 ? 'לבחור מתכון ולהתחיל' : 'המתכונים שלי'}</a>
 
       {!known && !starter.none ? (
         <section class="card sun" aria-label="הסטארטר שלי" data-testid="starter-ask">
@@ -105,7 +102,6 @@ export function Home() {
           <span class="big">אין סטארטר עדיין</span>
           <span class="muted">אפשר להכין אחד מקמח ומים בכמה ימים. כשיש, מגדירים אותו כאן.</span>
           <a class="btn small" href="#/starter">יש לי סטארטר עכשיו</a>
-          <a class="btn small" href="#/new" data-testid="starter-next">לתכנן אפייה בלי סטארטר מוכן</a>
         </section>
       ) : (
         <section class="card sun" aria-label="הסטארטר שלי">
@@ -121,7 +117,6 @@ export function Home() {
             </button>
           </div>
           <a class="btn small" href="#/starter" style="color:#2B1D3A;border-color:#2B1D3A">עדכון מצב הסטארטר</a>
-          <a class="btn small" href="#/new" style="color:#2B1D3A;border-color:#2B1D3A" data-testid="starter-next">יש סטארטר: להתחיל אפייה</a>
         </section>
       )}
 
