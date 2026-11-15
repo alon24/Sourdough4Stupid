@@ -130,7 +130,7 @@ export function StarterStatus() {
       )}
       {where === 'room' && timeDone && (
         <Q title="איך הוא נראה?">
-          <Chip<Cond> v="active" cur={cond} set={setCond}>פעיל ובועבע</Chip>
+          <Chip<Cond> v="active" cur={cond} set={setCond}>פעיל ומוכן</Chip>
           <Chip<Cond> v="weak" cur={cond} set={setCond}>חלש, צריך חיזוק</Chip>
           <Chip<Cond> v="unknown" cur={cond} set={setCond}>לא יודע</Chip>
         </Q>

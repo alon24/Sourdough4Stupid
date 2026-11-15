@@ -178,7 +178,7 @@ export function PlanScreen() {
       <PhotoStrip photos={plan.photos ?? []} />
 
       {far && next && (
-        <button class="btn small jump" onClick={() => nextRef.current?.scrollIntoView({ block: 'center' })}>לשלב הנוכחי</button>
+        <button class="btn small jump" aria-label="לשלב הנוכחי" title="לשלב הנוכחי" onClick={() => nextRef.current?.scrollIntoView({ block: 'center' })}>↓</button>
       )}
       {deriveP && (
         <section class="card" role="alert">

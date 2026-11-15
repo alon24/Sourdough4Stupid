@@ -382,7 +382,7 @@ test('start questionnaire: an active starter means no feeding steps', async ({ p
   await page.goto('/#/new');
   await startBake(page);
   await page.getByRole('link', { name: /התחלת ביצוע/ }).click();
-  await page.getByRole('button', { name: 'פעיל ובועבע' }).click();
+  await page.getByRole('button', { name: 'פעיל ומוכן' }).click();
   await expect(page.getByRole('button', { name: /להאכיל סטארטר/ })).toHaveCount(0);
   await page.getByRole('button', { name: /עוד לא התחלתי/ }).click();
   await expect(page.getByRole('button', { name: /להאכיל סטארטר/ })).toHaveCount(0);
@@ -937,7 +937,7 @@ test('scenario 1, a new user opens the app: nothing running, asked about the sta
   await page.getByRole('button', { name: 'רגיל (100%)' }).click();
   await page.getByRole('button', { name: /בחוץ/ }).click();
   await page.getByRole('button', { name: 'אתמול' }).click();
-  await page.getByRole('button', { name: 'פעיל ובועבע' }).click();
+  await page.getByRole('button', { name: 'פעיל ומוכן' }).click();
   await page.getByRole('button', { name: '100', exact: true }).click();
   await page.getByRole('button', { name: 'שמור ובחזרה לבית' }).click();
   await page.goto('/#/new');
@@ -1598,4 +1598,18 @@ test('flows 10: per-product oven instructions (default, editable) and free notes
   await page.getByRole('link', { name: 'אפייה חדשה' }).first().click();
   await startBake(page);
   await expect(page.locator('body')).toContainText('30 דק\' בסיר ב־245°');
+});
+
+test('flows 11: starter state wording fits regular and stiff, and the jump button is a small corner button', async ({ page }) => {
+  await page.goto('/#/new');
+  await startBake(page);
+  await page.goto('/#/start');
+  await expect(page.getByRole('button', { name: 'פעיל ומוכן' })).toBeVisible();
+  await expect(page.locator('body')).not.toContainText('בועבע');
+  await page.goto('/#/plan');
+  const jump = page.getByRole('button', { name: 'לשלב הנוכחי' });
+  if (await jump.count()) {
+    const b = (await jump.boundingBox())!;
+    expect(b.width).toBeLessThanOrEqual(60);
+  }
 });
