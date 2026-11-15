@@ -48,7 +48,7 @@ test.beforeEach(async ({ page }) => {
 
 test('home shows the starter and is right-to-left', async ({ page }) => {
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
-  await expect(page.getByRole('heading', { name: 'מה אופים היום?' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'המחמצת שלי' })).toBeVisible();
   await expect(page.getByTestId('starter-ask')).toBeVisible();
 });
 
@@ -136,7 +136,7 @@ test('works offline after first load', async ({ page, context }) => {
   await page.reload();
   await context.setOffline(true);
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'מה אופים היום?' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'המחמצת שלי' })).toBeVisible();
 });
 
 test('manifest is installable', async ({ page, request }) => {
@@ -747,9 +747,9 @@ test('home: bake status before the starter, the starter is asked about and never
   const status = await page.getByTestId('idle').boundingBox();
   const starter = await ask.boundingBox();
   expect(status!.y).toBeLessThan(starter!.y);
-  const recipes = await page.getByRole('link', { name: 'מתכונים' }).first().boundingBox();
-  const fresh = await page.getByRole('link', { name: 'להתחיל אפייה' }).boundingBox();
-  expect(Math.abs(recipes!.y - fresh!.y)).toBeLessThan(5);
+  // home is a gateway: one way into recipes, no "start a bake" without a recipe
+  await expect(page.getByTestId('to-recipes')).toBeVisible();
+  await expect(page.getByRole('link', { name: /להתחיל אפייה/ })).toHaveCount(0);
   await ask.getByRole('link', { name: 'כן, בוא נגדיר' }).click();
   await expect(page.getByRole('heading', { name: 'מה מצב הסטארטר?' })).toBeVisible();
 });
@@ -932,7 +932,7 @@ test('scenario 1, a new user opens the app: nothing running, asked about the sta
   await page.getByRole('button', { name: 'פעיל ובועבע' }).click();
   await page.getByRole('button', { name: '100', exact: true }).click();
   await page.getByRole('button', { name: 'שמור ובחזרה לבית' }).click();
-  await page.getByTestId('starter-next').click();
+  await page.goto('/#/new');
   await expect(page.getByRole('heading', { name: 'מה בא לך?' })).toBeVisible();
 });
 
@@ -966,7 +966,7 @@ test('scenario 4, starting a bake without a starter: the wizard asks how much st
   await page.goto('/#/');
   await page.getByRole('button', { name: 'אין לי עדיין' }).click();
   await expect(page.getByText('אין סטארטר עדיין')).toBeVisible();
-  await page.getByRole('link', { name: 'להתחיל אפייה' }).click();
+  await page.goto('/#/new');
   await goStep(page, 4);
   await page.getByLabel('יש לי עכשיו (גרם)').fill('0');
   await goStep(page, 4);
@@ -993,7 +993,9 @@ test('scenario 5, looking back at the last bake: a finished bake shows in "what 
 test('scenario 6, nothing is running: a clear way to start', async ({ page }) => {
   await page.goto('/#/');
   await expect(page.getByTestId('idle')).toBeVisible();
-  await page.getByRole('link', { name: 'להתחיל אפייה' }).click();
+  await page.getByTestId('to-recipes').click();
+  await expect(page).toHaveURL(/#\/recipes$/);
+  await page.getByTestId('bake-no-recipe').click();
   await expect(page).toHaveURL(/#\/new$/);
 });
 
@@ -1536,4 +1538,15 @@ test('flows 7: a bake from a rolls recipe has no bread row, and a row at zero di
   await expect(page.getByTestId('item-row')).toHaveCount(0);
   await expect(page.getByTestId('items-empty')).toBeVisible();
   await expect(page.getByRole('button', { name: '+ לחם כפרי', exact: true })).toBeVisible();
+});
+
+test('flows 8: inclusions only for bread, not for rolls or pizza', async ({ page }) => {
+  await page.goto('/#/new');
+  await page.getByRole('button', { name: '+ לחמניות', exact: true }).click();
+  await goStep(page, 3);
+  await expect(page.getByTestId('inclusions-box')).toHaveCount(0);
+  await goStep(page, 1);
+  await page.getByRole('button', { name: '+ לחם כפרי', exact: true }).click();
+  await goStep(page, 3);
+  await expect(page.getByTestId('inclusions-box')).toBeVisible();
 });

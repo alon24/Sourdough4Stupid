@@ -48,6 +48,8 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
   const bLoaves = baseItems.filter((i) => groupOf(i) === 'loaf').reduce((n, i) => n + i.count, 0);
   const bRolls = baseItems.filter((i) => groupOf(i) === 'rolls').reduce((n, i) => n + i.count, 0);
   const bLoafItems = baseItems.filter((i) => groupOf(i) === 'loaf');
+  /** inclusions (nuts, olives...) only make sense in bread, not in rolls or pizza */
+  const hasLoaf = bLoaves > 0;
   const bWeight = bLoaves ? Math.round(bLoafItems.reduce((n, i) => n + i.count * i.weight, 0) / bLoaves) : 1000;
   const loafItems = items.filter((i) => groupOf(i) === 'loaf');
   const rollItems = items.filter((i) => groupOf(i) === 'rolls');
@@ -141,7 +143,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
     const itemsToSave = pieceItems;
     const r: Recipe = {
       id: initial?.id ?? `r${Date.now()}`, name: name.trim(), fav: initial?.fav ?? false,
-      loaves: bLoaves, rolls: bRolls, weight: bWeight, shape, inclusions: picked, kneading, cold, folds, foldGapMin: foldGap, autolyse, rollEnrich: enrich, hydration, mix: items, items: itemsToSave,
+      loaves: bLoaves, rolls: bRolls, weight: bWeight, shape, inclusions: hasLoaf ? picked : [], kneading, cold, folds, foldGapMin: foldGap, autolyse, rollEnrich: enrich, hydration, mix: items, items: itemsToSave,
     };
     setState({ recipes: initial ? recipes.map((x) => (x.id === r.id ? r : x)) : [...recipes, r] });
     location.hash = '#/recipes';
@@ -151,7 +153,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
   const changedFromRecipe = (): boolean => {
     if (!initial) return false;
     const norm = (r: { loaves: number; rolls: number; weight: number; shape: string; inclusions?: string[]; kneading: string; cold: boolean; hydration: number; mix: object }) => JSON.stringify([r.loaves, r.rolls, r.weight, r.shape, 0, r.kneading, r.cold, r.hydration, r.mix]);
-    return norm(initial) !== norm({ loaves: bLoaves, rolls: bRolls, weight: bWeight, shape, inclusions: picked, kneading, cold, hydration, mix: currentItems() }) || JSON.stringify(itemsOf(initial)) !== JSON.stringify(baseItems);
+    return norm(initial) !== norm({ loaves: bLoaves, rolls: bRolls, weight: bWeight, shape, inclusions: hasLoaf ? picked : [], kneading, cold, hydration, mix: currentItems() }) || JSON.stringify(itemsOf(initial)) !== JSON.stringify(baseItems);
   };
   /** the baker asked to keep this bake's changes as a new recipe too */
   const [saveNew, setSaveNew] = useState(false);
@@ -164,14 +166,14 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
     if (!initial) return;
     const r: Recipe = {
       id: `r${Date.now()}`, name: `${initial.name} (גרסה)`, fav: false, derivedFrom: initial.id,
-      loaves: bLoaves, rolls: bRolls, weight: bWeight, shape, inclusions: picked, kneading, cold, hydration, mix: currentItems(), items: pieceItems,
+      loaves: bLoaves, rolls: bRolls, weight: bWeight, shape, inclusions: hasLoaf ? picked : [], kneading, cold, hydration, mix: currentItems(), items: pieceItems,
     };
     setState({ recipes: [...recipes, r] });
     doGo();
   };
 
   const doGo = () => {
-    const inclusions = INCLUSIONS.filter((i) => picked.includes(i.name));
+    const inclusions = hasLoaf ? INCLUSIONS.filter((i) => picked.includes(i.name)) : [];
     const input: PlanInput = {
       outOfOvenAt: at, loaves, rolls, loafWeight: weight, rollWeight, loafShape: shape,
       ...(rolls > 0 ? { rollsName, ...(rollsBake ? { rollsBake } : {}) } : {}),
@@ -455,7 +457,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
 </div>
 
 <div class="stepbox" hidden={!on(3)}>
-      <div>
+      {hasLoaf && <div data-testid="inclusions-box">
         <span class="sub">תוספות</span>
         <div class="chips" style="margin-top:8px">
           {INCLUSIONS.map((i) => (
@@ -465,7 +467,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
           ))}
         </div>
         <InclusionsEditor />
-      </div>
+      </div>}
 
       {!isRecipe && !editFlour && (
         <div class="card row" aria-label="קמח" data-testid="flour-summary">

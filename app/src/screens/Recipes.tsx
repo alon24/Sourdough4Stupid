@@ -49,7 +49,10 @@ export function Recipes() {
         <h1>מתכונים</h1>
         <span class="muted">{recipes.length > 0 ? `${recipes.length} מתכונים שמורים` : 'התבניות שממנן יוצאת כל אפייה'}</span>
       </div>
-      <a class="btn primary" href="#/recipe">מתכון חדש</a>
+      <div class="grid2">
+        <a class="btn primary" href="#/recipe">מתכון חדש</a>
+        <a class="btn" href="#/new" data-testid="bake-no-recipe">אפייה בלי מתכון</a>
+      </div>
       {sorted.length === 0 && <p class="muted">עוד אין מתכונים. מתכון הוא התבנית: כמה, קמחים, הידרציה ותוספות. כל אפייה חדשה יוצאת ממנו.</p>}
       {sorted.map((r) => (
         <section class="card" data-testid="recipe">
