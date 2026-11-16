@@ -1,3 +1,4 @@
+import { getReturnTo } from '../nav';
 import { useState } from 'preact/hooks';
 import { revivalFeeds } from '../../../core/src/index';
 import { setState, useStore } from '../store';
@@ -86,7 +87,7 @@ export function StarterStatus() {
         none: false,
       },
     });
-    location.hash = '#/';
+    location.hash = getReturnTo() ?? '#/';
   };
 
   return (
@@ -145,7 +146,7 @@ export function StarterStatus() {
         <section class="card sun" aria-label="מה עושים עכשיו">
           <strong>מה עושים עכשיו</strong>
           <span data-testid="starter-advice">{advice}</span>
-          <button class="btn primary" onClick={save}>שמור ובחזרה לבית</button>
+          <button class="btn primary" onClick={save}>{getReturnTo() ? 'שמור וחזרה לאפייה' : 'שמור ובחזרה לבית'}</button>
         </section>
       )}
     </main>

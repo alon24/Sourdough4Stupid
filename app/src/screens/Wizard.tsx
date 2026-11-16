@@ -120,8 +120,11 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
   const check = starterCheck(items, have);
   const want = useOverride ?? (check.need || 100);
   const doughG = starterNeed(items).dough;
-  const short = check.need > 0 && have < want * 0.9;
+  /** this bake: the baker prepares the starter, the plan has no feeding steps and no starter check */
+  const [selfPrep, setSelfPrep] = useState(false);
+  const short = !selfPrep && check.need > 0 && have < want * 0.9;
   const [ready, setReady] = useState(false);
+  const skipFeed = ready || selfPrep;
   /** "I already have enough": ask for the real amount before the block is lifted */
   const [confirmEnough, setConfirmEnough] = useState(false);
   /** the baker chose to grow the starter: show the feeding plan and wait for a go-ahead */
@@ -130,7 +133,7 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
   const pieceItems = baseItems;
   const nothing = loaves + rolls === 0;
   const starterMode = true;
-  const chain = starterMode && !ready && want > 0 && have > 0
+  const chain = starterMode && !skipFeed && want > 0 && have > 0
     ? buildChain({ have, target: want, type: starter.type, hydration: starter.hydration, tempC: roomTempC, overnight })
     : [];
   const chainHours = chain.reduce((sum, c) => sum + c.hours, 0);
@@ -182,13 +185,13 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
       ...(loafBake && loaves > 0 ? { loafBake } : {}),
       starter: {
         type: starter.type, hydration: starter.hydration, daysInFridge: starter.weak ? Math.max(daysSinceFed(starter), 15) : daysSinceFed(starter),
-        ...(starterMode && !ready ? { haveGrams: have } : {}),
+        ...(starterMode && !skipFeed ? { haveGrams: have } : {}),
       },
-      ...(starterMode ? { buildTarget: want, starterReady: ready } : {}),
+      ...(starterMode ? { buildTarget: want, starterReady: skipFeed } : {}),
       roomTempC, kneading, inclusions, coldProof: cold, hydration, blend,
       folds, ...(foldGap ? { foldGapMin: foldGap } : {}), autolyse,
       ...(enrich !== 'none' && rolls > 0 ? { rollEnrich: enrich } : {}),
-      ...(starterMode && !ready ? { overnightFeed: overnight } : {}), ...(starterMode ? { useAllStarter: true } : {}),
+      ...(starterMode && !skipFeed ? { overnightFeed: overnight } : {}), ...(starterMode ? { useAllStarter: true } : {}),
     };
     const parts = [loaves && loavesText(loaves), rolls && rollsHe(rolls, rollsName), ...picked].filter(Boolean);
     const base = `${initial?.name ?? parts.join(' · ')}, ${shortDate(at)}`;
@@ -232,6 +235,16 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
         null
       ) : (
       <section class="card" aria-label="כמה סטארטר" data-testid="starter-section">
+        <div class="seg" role="group" aria-label="מי מכין את הסטארטר">
+          <button class={!selfPrep ? 'on' : ''} aria-pressed={!selfPrep} onClick={() => setSelfPrep(false)}>תכנן לי את הסטארטר</button>
+          <button class={selfPrep ? 'on' : ''} aria-pressed={selfPrep} data-testid="starter-self" onClick={() => setSelfPrep(true)}>אני מכין בעצמי</button>
+        </div>
+        {selfPrep ? (
+          <span class="muted" data-testid="starter-self-note">
+            באפייה הזאת אין שלבי האכלה ובדיקת סטארטר. צריך <strong class="num">{want}</strong> ג' סטארטר מוכן ועל השיא בשעת הערבוב.
+          </span>
+        ) : (
+          <>
         <div class="row">
           <strong>הסטארטר</strong>
           <span class="muted" data-testid="starter-state">
@@ -340,6 +353,8 @@ export function Wizard({ kind = 'bake', recipeId }: { kind?: 'bake' | 'recipe'; 
           <span data-testid="chain" class="muted">
             {chain.length === 1 ? 'האכלה אחת' : `${chain.length} האכלות`}, בסך הכול כ־<span class="num">{Math.round(chainHours)}</span> שעות לפני הערבוב.
           </span>
+        )}
+          </>
         )}
       </section>
       )}
