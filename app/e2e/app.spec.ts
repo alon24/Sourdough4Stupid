@@ -1613,3 +1613,29 @@ test('flows 11: starter state wording fits regular and stiff, and the jump butto
     expect(b.width).toBeLessThanOrEqual(60);
   }
 });
+
+test('flows 12: updating the starter from the wizard returns to the same step with everything kept; "I prepare it myself" skips starter planning', async ({ page }) => {
+  await page.goto('/#/new');
+  await page.getByRole('button', { name: '+ לחם כפרי', exact: true }).click();
+  await page.getByRole('button', { name: 'עוד לחם' }).click();
+  await goStep(page, 4);
+  await expect(page.getByTestId('starter-section')).toBeVisible();
+  await page.getByTestId('starter-section').getByRole('link', { name: 'עדכון' }).click();
+  await expect(page.getByRole('heading', { name: 'מה מצב הסטארטר?' })).toBeVisible();
+  await page.getByRole('button', { name: 'אחורה', exact: true }).click();
+  await expect(page.getByTestId('wizard-step')).toContainText('שלב 4');
+  await expect(page.getByTestId('starter-section')).toBeVisible();
+  await page.getByRole('button', { name: 'הקודם' }).first().click();
+  await page.getByRole('button', { name: 'הקודם' }).first().click();
+  await page.getByRole('button', { name: 'הקודם' }).first().click();
+  await expect(page.getByTestId('item-row')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'כמות לחם' }).or(page.getByLabel('כמות לחם'))).toContainText('2');
+  // this bake only: I prepare the starter myself, no feeding steps
+  await goStep(page, 4);
+  await page.getByTestId('starter-self').click();
+  await expect(page.getByTestId('starter-self-note')).toBeVisible();
+  await expect(page.getByTestId('starter-warning')).toHaveCount(0);
+  await page.getByRole('button', { name: 'יאללה, תתכנן לי' }).click();
+  await expect(page.getByRole('heading', { name: 'התוכנית שלך' })).toBeVisible();
+  await expect(page.locator('body')).not.toContainText('להאכיל סטארטר');
+});

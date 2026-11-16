@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
+import { setReturnTo } from './nav';
 import { Calc } from './screens/Calc';
 import { Download } from './screens/Download';
 import { Help } from './screens/Help';
@@ -35,6 +36,16 @@ function back(fallback: string) {
 
 export function App() {
   const [hash, setHash] = useState(location.hash || '#/');
+  /** the new-bake wizard stays mounted (hidden) while the starter screen is open from it, so back returns to the same step with everything kept */
+  const [keep, setKeep] = useState<string | null>(null);
+  const prev = useRef(hash);
+  useEffect(() => {
+    const was = prev.current;
+    prev.current = hash;
+    if (hash.startsWith('#/new')) { setKeep(hash); setReturnTo(null); }
+    else if (hash === '#/starter' && was.startsWith('#/new')) { setReturnTo(was); }
+    else if (hash !== '#/starter') { setKeep(null); setReturnTo(null); }
+  }, [hash]);
   useEffect(() => {
     const on = () => { moves++; setHash(location.hash || '#/'); };
     addEventListener('hashchange', on);
@@ -42,8 +53,9 @@ export function App() {
     return () => removeEventListener('hashchange', on);
   }, []);
 
+  const kept = hash.startsWith('#/new') ? hash : keep;
   const screen =
-    hash.startsWith('#/log') ? <Log key={hash} /> : hash === '#/more' ? <More /> : hash === '#/plan' ? <PlanScreen /> : hash === '#/recipes' ? <Recipes /> : hash === '#/recipe' ? <Wizard key="r" kind="recipe" /> : hash.startsWith('#/recipe/') ? <Wizard key={hash} kind="recipe" recipeId={hash.slice(9)} /> : hash.startsWith('#/new/') ? <Wizard key={hash} recipeId={hash.slice(6)} /> : hash === '#/new' ? <Wizard key="n" /> : hash === '#/start' ? <Start /> : hash === '#/starter' ? <StarterStatus /> : hash === '#/calc' ? <Calc /> : hash === '#/help' ? <Help /> : hash === '#/sync' ? <Sync /> : hash === '#/app' ? <Download /> : <Home />;
+    hash.startsWith('#/log') ? <Log key={hash} /> : hash === '#/more' ? <More /> : hash === '#/plan' ? <PlanScreen /> : hash === '#/recipes' ? <Recipes /> : hash === '#/recipe' ? <Wizard key="r" kind="recipe" /> : hash.startsWith('#/recipe/') ? <Wizard key={hash} kind="recipe" recipeId={hash.slice(9)} /> : hash.startsWith('#/new') ? null : hash === '#/start' ? <Start /> : hash === '#/starter' ? <StarterStatus /> : hash === '#/calc' ? <Calc /> : hash === '#/help' ? <Help /> : hash === '#/sync' ? <Sync /> : hash === '#/app' ? <Download /> : <Home />;
 
   return (
     <>
@@ -51,6 +63,11 @@ export function App() {
       <UpdateBanner />
       {!TAB_HASHES.has(hash.split('?')[0]!) && !hash.startsWith('#/log') && (
         <button class="back" aria-label="אחורה" onClick={() => back(hash.startsWith('#/recipe') ? '#/recipes' : hash === '#/starter' ? '#/' : hash.startsWith('#/new') ? '#/' : '#/more')}>→ חזרה</button>
+      )}
+      {kept && (
+        <div hidden={hash !== kept} data-testid="wizard-keep">
+          <Boundary resetKey={kept}>{kept.startsWith('#/new/') ? <Wizard key={kept} recipeId={kept.slice(6)} /> : <Wizard key="n" />}</Boundary>
+        </div>
       )}
       <Boundary resetKey={hash}>{screen}</Boundary>
       <nav class="tabs" aria-label="ניווט ראשי">
