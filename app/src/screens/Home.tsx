@@ -83,6 +83,8 @@ export function Home() {
 
       <a class={`btn ${running.length === 0 ? 'primary' : ''}`} href="#/recipes" data-testid="to-recipes">📖 {running.length === 0 ? 'לבחור מתכון ולהתחיל' : 'המתכונים שלי'}</a>
 
+      <a class="btn" href="#/care" data-testid="to-starter-care">🫙 יש לך סטארטר? פעולות</a>
+
       {history.length > 0 && (
         <section class="card" aria-label="יומן אפיות" data-testid="recent">
           <strong>יומן אפיות: האחרונות</strong>

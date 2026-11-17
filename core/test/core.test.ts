@@ -858,3 +858,36 @@ describe('scaling and combining', () => {
     expect(r.separate[1]!.why).toContain('סוכר');
   });
 });
+
+import { feedTo, starterPlan } from '../src/starterplan';
+describe('starter plan', () => {
+  it('converts stiff 50% to liquid 100% in one feed', () => {
+    const a = feedTo(50, 0.5, 4, 1)!;
+    expect(a.hydration).toBeCloseTo(1, 6);
+    expect(a.total).toBeCloseTo(200, 6);
+  });
+  it('liquid to stiff is not reachable when too little flour is added', () => {
+    expect(feedTo(50, 1, 1.2, 0.5)).toBeNull();
+  });
+  it('plans a chain that ends ready at the asked time', () => {
+    const now = Date.UTC(2026, 0, 1, 8);
+    const readyAt = now + 40 * 3_600_000;
+    const p = starterPlan({ have: 30, fromType: 'stiff', fromHydration: 0.5, target: 300, toType: 'liquid', toHydration: 1, readyAt, now });
+    expect(p.steps.at(-1)!.at).toBe(readyAt);
+    expect(p.steps.length).toBeGreaterThan(2);
+    expect(p.steps[0]!.at).toBeGreaterThanOrEqual(now);
+    expect(p.steps[0]!.amounts!.hydration).toBeCloseTo(1, 6);
+    expect(p.steps.slice(0, -1).at(-1)!.amounts!.total).toBeGreaterThanOrEqual(330);
+  });
+  it('flags a deadline that is too close', () => {
+    const now = Date.UTC(2026, 0, 1, 8);
+    const p = starterPlan({ have: 30, fromType: 'stiff', fromHydration: 0.5, target: 300, toType: 'stiff', toHydration: 0.5, readyAt: now + 3_600_000, now });
+    expect(p.late).toBe(true);
+    expect(p.readyAt).toBeGreaterThan(now + 3_600_000);
+  });
+  it('adds revival feeds after a long time in the fridge', () => {
+    const now = Date.UTC(2026, 0, 1, 8);
+    const p = starterPlan({ have: 200, fromType: 'liquid', fromHydration: 1, target: 100, toType: 'liquid', toHydration: 1, now, daysInFridge: 40 });
+    expect(p.steps.filter((s) => s.kind === 'revive').length).toBe(2);
+  });
+});
