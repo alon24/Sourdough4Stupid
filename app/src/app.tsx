@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { setReturnTo } from './nav';
 import { Calc } from './screens/Calc';
+import { StarterCare } from './screens/StarterCare';
 import { Download } from './screens/Download';
 import { Help } from './screens/Help';
 import { Home } from './screens/Home';
@@ -55,14 +56,14 @@ export function App() {
 
   const kept = hash.startsWith('#/new') ? hash : keep;
   const screen =
-    hash.startsWith('#/log') ? <Log key={hash} /> : hash === '#/more' ? <More /> : hash === '#/plan' ? <PlanScreen /> : hash === '#/recipes' ? <Recipes /> : hash === '#/recipe' ? <Wizard key="r" kind="recipe" /> : hash.startsWith('#/recipe/') ? <Wizard key={hash} kind="recipe" recipeId={hash.slice(9)} /> : hash.startsWith('#/new') ? null : hash === '#/start' ? <Start /> : hash === '#/starter' ? <StarterStatus /> : hash === '#/calc' ? <Calc /> : hash === '#/help' ? <Help /> : hash === '#/sync' ? <Sync /> : hash === '#/app' ? <Download /> : <Home />;
+    hash.startsWith('#/log') ? <Log key={hash} /> : hash === '#/more' ? <More /> : hash === '#/plan' ? <PlanScreen /> : hash === '#/recipes' ? <Recipes /> : hash === '#/recipe' ? <Wizard key="r" kind="recipe" /> : hash.startsWith('#/recipe/') ? <Wizard key={hash} kind="recipe" recipeId={hash.slice(9)} /> : hash.startsWith('#/new') ? null : hash === '#/start' ? <Start /> : hash === '#/starter' ? <StarterStatus /> : hash === '#/care' ? <StarterCare /> : hash === '#/calc' ? <Calc /> : hash === '#/help' ? <Help /> : hash === '#/sync' ? <Sync /> : hash === '#/app' ? <Download /> : <Home />;
 
   return (
     <>
       <Boundary resetKey={hash} quiet><Reminder /></Boundary>
       <UpdateBanner />
       {!TAB_HASHES.has(hash.split('?')[0]!) && !hash.startsWith('#/log') && (
-        <button class="back" aria-label="אחורה" onClick={() => back(hash.startsWith('#/recipe') ? '#/recipes' : hash === '#/starter' ? '#/' : hash.startsWith('#/new') ? '#/' : '#/more')}>→ חזרה</button>
+        <button class="back" aria-label="אחורה" onClick={() => back(hash.startsWith('#/recipe') ? '#/recipes' : hash === '#/starter' || hash === '#/care' ? '#/' : hash.startsWith('#/new') ? '#/' : '#/more')}>→ חזרה</button>
       )}
       {kept && (
         <div hidden={hash !== kept} data-testid="wizard-keep">

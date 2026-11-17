@@ -11,6 +11,7 @@ export function More() {
       </div>
       <StarterCard />
       <AlarmCheck />
+      <a class="btn" href="#/care">טיפול בסטארטר</a>
       <a class="btn" href="#/calc">מחשבון סטארטר</a>
       <a class="btn" href="#/help">עזרה ומדריך</a>
       <a class="btn" href="#/app">הורדת אפליקציית אנדרואיד</a>

@@ -78,6 +78,21 @@ test('calculator matches the spec example for stiff starter', async ({ page }) =
   expect(parseInt(big.replace(/\D/g, ''))).toBeGreaterThan(parseInt(small.replace(/\D/g, '')));
 });
 
+test('starter care: home link, plan from 30 g stiff to 300 g liquid, alarms start', async ({ page }) => {
+  await page.goto('/#/');
+  await page.getByTestId('to-starter-care').click();
+  await expect(page.getByRole('heading', { name: 'טיפול בסטארטר' })).toBeVisible();
+  await page.getByLabel('כמה יש (גרם)').fill('30');
+  await page.getByLabel('כמה (גרם)').fill('300');
+  await page.getByRole('button', { name: 'נוזלי (100%)' }).last().click();
+  const steps = page.getByTestId('care-step');
+  expect(await steps.count()).toBeGreaterThan(2);
+  await expect(steps.first()).toContainText('סטארטר נוזלי');
+  await page.getByRole('button', { name: 'התחל: שעון לכל שלב' }).click();
+  await page.getByRole('link', { name: /לשעונים/ }).click();
+  await expect(page.locator('main')).toContainText('סטארטר נוזלי 300');
+});
+
 test('calculator survives empty input', async ({ page }) => {
   await page.goto('/#/calc');
   await page.getByLabel('צריך (גרם)').fill('');
@@ -607,7 +622,7 @@ test('refreshing any screen never fetches or navigates to the APK; the QR points
   const apk: string[] = [];
   page.on('request', (r) => { if (/\.apk(\?|$)/.test(r.url())) apk.push(r.url()); });
   page.on('download', (d) => apk.push(`download:${d.suggestedFilename()}`));
-  for (const route of ['#/', '#/plan', '#/new', '#/recipes', '#/recipe', '#/calc', '#/help', '#/starter', '#/start', '#/app']) {
+  for (const route of ['#/', '#/plan', '#/new', '#/recipes', '#/recipe', '#/calc', '#/care', '#/help', '#/starter', '#/start', '#/app']) {
     await page.goto(`/${route}`);
     await page.reload();
     await page.reload();
