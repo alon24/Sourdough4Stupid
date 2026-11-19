@@ -7,11 +7,14 @@ const sha = (process.env.GITHUB_SHA ?? (() => { try { return execSync('git rev-p
 const version = `${JSON.parse(readFileSync('./package.json', 'utf8')).version} · ${sha}`;
 import { VitePWA } from 'vite-plugin-pwa';
 
+const versionFile = { name: 'version-json', generateBundle() { (this as any).emitFile({ type: 'asset', fileName: 'version.json', source: JSON.stringify({ version }) }); } };
+
 export default defineConfig({
   define: { __APP_VERSION__: JSON.stringify(version) },
   base: './',
   plugins: [
     preact(),
+    versionFile,
     VitePWA({
       registerType: 'prompt',
       injectRegister: false,

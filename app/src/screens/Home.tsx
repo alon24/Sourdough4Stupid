@@ -2,10 +2,32 @@ import { Capacitor } from '@capacitor/core';
 import { dayName, hhmm, until } from '../format';
 import { planSummary } from '../summary';
 import { complete, resumeAt, shift } from '../../../core/src/index';
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { type ActivePlan, allPlans, closePlan, planId, selectPlan, updatePlan, useStore } from '../store';
 
 const isApk = Capacitor.isNativePlatform();
+const WEB = 'https://alon24.github.io/Sourdough4Stupid/';
+
+/** Where am I running: the Android app or the web. In the app, a link to the web version, which is often newer. */
+function Where() {
+  const [latest, setLatest] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isApk) return;
+    fetch(`${WEB}version.json?t=${Date.now()}`, { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j) => setLatest(typeof j.version === 'string' ? j.version : null))
+      .catch(() => setLatest(null));
+  }, []);
+  if (!isApk) return <span class="muted" data-testid="where" style="font-size:13px">🌐 אתה בווב</span>;
+  const newer = latest !== null && latest !== __APP_VERSION__;
+  return (
+    <div class="row" data-testid="where" style="font-size:13px">
+      <span class="muted">📱 אתה באפליקציה{newer ? ' · בווב יש גרסה חדשה יותר' : ''}</span>
+      <a href={WEB} target="_blank" rel="noopener" style="font-weight:600">עבור לווב</a>
+    </div>
+  );
+}
+
 const CHECKED = 'machmetzet.alarms-checked';
 const alarmsChecked = (): boolean => { try { return localStorage.getItem(CHECKED) === '1'; } catch { return true; } };
 
@@ -30,6 +52,8 @@ export function Home() {
         </div>
         <span class="muted" data-testid="version" style="direction:ltr;font-size:12px;white-space:nowrap">v{__APP_VERSION__}{isApk ? ' · APK' : ''}</span>
       </div>
+
+      <Where />
 
       {isApk && !alarmsChecked() && !promptGone && (
         <div class="card" data-testid="alarm-check-prompt">
