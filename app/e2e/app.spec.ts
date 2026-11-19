@@ -1659,3 +1659,14 @@ test('flows 12: updating the starter from the wizard returns to the same step wi
   await expect(page.getByRole('heading', { name: 'התוכנית שלך' })).toBeVisible();
   await expect(page.locator('body')).not.toContainText('להאכיל סטארטר');
 });
+
+test('home says where it runs', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByTestId('where')).toHaveText('🌐 אתה בווב');
+});
+
+test('more has a manual version check and a download link on the web', async ({ page }) => {
+  await page.goto('/#/more');
+  await expect(page.getByTestId('version-check')).toBeVisible();
+  await expect(page.getByText('הורדת אפליקציית אנדרואיד')).toBeVisible();
+});
