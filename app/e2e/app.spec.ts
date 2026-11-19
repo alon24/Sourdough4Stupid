@@ -85,8 +85,13 @@ test('starter care: home link, plan from 30 g stiff to 300 g liquid, alarms star
   await page.getByLabel('כמה יש (גרם)').fill('30');
   await page.getByLabel('כמה (גרם)').fill('300');
   await page.getByRole('button', { name: 'נוזלי (100%)' }).last().click();
+  await expect(page.getByRole('button', { name: 'להתחיל עכשיו' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('input[type=datetime-local]')).toHaveCount(0);
   const steps = page.getByTestId('care-step');
   expect(await steps.count()).toBeGreaterThan(2);
+  await page.getByRole('button', { name: 'להתחיל מחר בבוקר' }).click();
+  await expect(steps.first()).toContainText('מחר');
+  await page.getByRole('button', { name: 'להתחיל עכשיו' }).click();
   await expect(steps.first()).toContainText('סטארטר נוזלי');
   await page.getByRole('button', { name: 'התחל: שעון לכל שלב' }).click();
   await page.getByRole('link', { name: /לשעונים/ }).click();

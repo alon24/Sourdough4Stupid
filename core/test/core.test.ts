@@ -891,3 +891,13 @@ describe('starter plan', () => {
     expect(p.steps.filter((s) => s.kind === 'revive').length).toBe(2);
   });
 });
+
+describe('starter plan start time', () => {
+  it('starts at startAt and is ready after the chain', () => {
+    const now = Date.UTC(2026, 0, 1, 8);
+    const p = starterPlan({ have: 3, fromType: 'stiff', fromHydration: 0.5, target: 30, toType: 'liquid', toHydration: 1, startAt: now + 20 * 3_600_000, now });
+    expect(p.steps[0]!.at).toBe(now + 20 * 3_600_000);
+    expect(p.late).toBe(false);
+    expect(p.readyAt).toBeGreaterThan(p.steps[0]!.at);
+  });
+});

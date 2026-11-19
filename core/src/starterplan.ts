@@ -49,6 +49,8 @@ export interface StarterGoal {
   toHydration: number;
   /** when it should be at its peak; omitted = as soon as possible */
   readyAt?: number;
+  /** when the first feeding happens; wins over `readyAt` */
+  startAt?: number;
   now: number;
   daysInFridge?: number;
   tempC?: number;
@@ -103,9 +105,9 @@ export function starterPlan(g: StarterGoal): StarterPlanResult {
   }
   const durations = amounts.map((a, i) => i === amounts.length - 1 && a.total < 1 ? 0 : peakHours({ type: g.toType, a: a.addFlour / a.seed, tempC: g.tempC, speedFactor: g.speedFactor }));
   const total = durations.reduce((x, y) => x + y, 0) * HOUR;
-  let readyAt = g.readyAt ?? g.now + total;
+  let readyAt = g.startAt !== undefined ? Math.max(g.startAt, g.now) + total : (g.readyAt ?? g.now + total);
   let late = false;
-  if (readyAt - total < g.now) { readyAt = g.now + total; late = g.readyAt !== undefined; }
+  if (g.startAt === undefined && readyAt - total < g.now) { readyAt = g.now + total; late = g.readyAt !== undefined; }
   let t = readyAt - total;
   const steps: StarterStep[] = amounts.map((a, i) => {
     const at = t;

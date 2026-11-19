@@ -1,10 +1,13 @@
 import { useState } from 'preact/hooks';
 import { starterPlan, type Step } from '../../../core/src/index';
-import { dayName, hhmm, toLocalInput } from '../format';
+import { dayName, hhmm } from '../format';
 import { addPlan, daysSinceFed, useStore } from '../store';
 
 const HOUR = 3_600_000;
 type T = 'stiff' | 'liquid';
+/** no exact clock times: start now, start tomorrow morning, or be ready around tomorrow morning */
+type When = 'now' | 'tomorrow' | 'readyTomorrow';
+const morning = (h: number, now: number): number => { const d = new Date(now); d.setDate(d.getDate() + 1); d.setHours(h, 0, 0, 0); return d.getTime(); };
 const H: Record<T, number> = { stiff: 0.5, liquid: 1 };
 
 function Seg({ value, set, label }: { value: T; set: (t: T) => void; label: string }) {
@@ -26,14 +29,13 @@ export function StarterCare() {
   const [target, setTarget] = useState(300);
   const [fridge, setFridge] = useState(starter.inFridge);
   const [days, setDays] = useState(starter.known ? daysSinceFed(starter) : 7);
-  const [soon, setSoon] = useState(false);
-  const [when, setWhen] = useState(toLocalInput(Math.ceil((now + 24 * HOUR) / (30 * 60_000)) * 30 * 60_000));
+  const [when, setWhen] = useState<When>('now');
   const [temp, setTemp] = useState(roomTempC);
   const [started, setStarted] = useState(false);
 
-  const readyAt = soon ? undefined : new Date(when).getTime();
-  const valid = have > 0 && target > 0 && (soon || Number.isFinite(readyAt));
-  const p = valid ? starterPlan({ have, fromType: from, fromHydration: H[from], target, toType: to, toHydration: H[to], readyAt, now, daysInFridge: fridge ? days : undefined, tempC: temp }) : null;
+  const valid = have > 0 && target > 0;
+  const timing = when === 'tomorrow' ? { startAt: morning(8, now) } : when === 'readyTomorrow' ? { readyAt: morning(9, now) } : { startAt: now };
+  const p = valid ? starterPlan({ have, fromType: from, fromHydration: H[from], target, toType: to, toHydration: H[to], ...timing, now, daysInFridge: fridge ? days : undefined, tempC: temp }) : null;
 
   const start = () => {
     if (!p) return;
@@ -75,11 +77,12 @@ export function StarterCare() {
           <label class="field">כמה (גרם)<input type="number" inputMode="numeric" min="1" value={target} onInput={(e) => setTarget(+e.currentTarget.value)} /></label>
           <label class="field">טמפ' חדר<input type="number" inputMode="numeric" min="10" max="35" value={temp} onInput={(e) => setTemp(+e.currentTarget.value)} /></label>
         </div>
-        <div class="seg" role="group" aria-label="מתי">
-          <button class={!soon ? 'on' : ''} aria-pressed={!soon} onClick={() => setSoon(false)}>מוכן ב…</button>
-          <button class={soon ? 'on' : ''} aria-pressed={soon} onClick={() => setSoon(true)}>כמה שיותר מהר</button>
+        <strong>מתי?</strong>
+        <div class="chips" role="group" aria-label="מתי">
+          <button class={`chip ${when === 'now' ? 'on' : ''}`} aria-pressed={when === 'now'} onClick={() => setWhen('now')}>להתחיל עכשיו</button>
+          <button class={`chip ${when === 'tomorrow' ? 'on' : ''}`} aria-pressed={when === 'tomorrow'} onClick={() => setWhen('tomorrow')}>להתחיל מחר בבוקר</button>
+          <button class={`chip ${when === 'readyTomorrow' ? 'on' : ''}`} aria-pressed={when === 'readyTomorrow'} onClick={() => setWhen('readyTomorrow')}>שיהיה מוכן מחר בערך</button>
         </div>
-        {!soon && <label class="field">מוכן בשיא ב<input type="datetime-local" value={when} onInput={(e) => setWhen(e.currentTarget.value)} /></label>}
       </section>
 
       {p && (
@@ -87,7 +90,7 @@ export function StarterCare() {
           <strong>התוכנית</strong>
           {p.problem === 'conversion' && <span role="alert">אי אפשר להגיע להידרציה הזאת בהאכלה אחת מהכמות שיש. כדאי להתחיל מיותר סטארטר.</span>}
           {p.problem === 'tooMuch' && <span role="alert">אין מספיק סטארטר להגיע לכמות הזאת במספר סביר של האכלות. כדאי להקטין את הכמות.</span>}
-          {p.late && <span role="alert">לא מספיקים עד השעה שביקשת. הכי מוקדם: {dayName(p.readyAt)} {hhmm(p.readyAt)}.</span>}
+          {p.late && <span role="alert">לא מספיקים עד מחר. הכי מוקדם: {dayName(p.readyAt)} {hhmm(p.readyAt)}.</span>}
           <ol style="padding-inline-start:20px;margin:0;display:flex;flex-direction:column;gap:8px">
             {p.steps.map((s) => (
               <li data-testid="care-step">
